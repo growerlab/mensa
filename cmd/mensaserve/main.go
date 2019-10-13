@@ -1,6 +1,6 @@
 package main
 
-// HTTP feature
+// Mensa git transfer backend server
 
 func main() {
 
