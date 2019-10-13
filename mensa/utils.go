@@ -7,6 +7,7 @@ import (
 	"syscall"
 )
 
+// IsAddressInUse check error
 func IsAddressInUse(err error) bool {
 	errOpError, ok := err.(*net.OpError)
 	if !ok {

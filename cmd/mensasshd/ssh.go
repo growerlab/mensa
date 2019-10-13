@@ -14,3 +14,9 @@ func (ms *MultiServers) Shutdown() error {
 
 	return nil
 }
+
+// Start start all servers
+func (ms *MultiServers) Start() error {
+
+	return nil
+}
