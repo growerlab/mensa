@@ -4,6 +4,16 @@ import (
 	"github.com/gliderlabs/ssh"
 )
 
+// ServerVars config
+type ServerVars struct {
+	Listen      string   `json:"Listen"`
+	HostKeys    []string `json:"HostKeys"`
+	Deadline    int      `json:"Deadline,omitempty"`    // default 3600
+	IdleTimeout int      `json:"IdleTimeout,omitempty"` // default 120
+}
+
+// Mensa-1.0
+
 // MultiServers multi instance
 type MultiServers struct {
 	srvs []*ssh.Server

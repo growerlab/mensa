@@ -1,0 +1,23 @@
+{
+    "User": "git",
+    "Servers": [
+        {
+            "Listen": "0.0.0.0:22",
+            "HostKeys": [
+                "/etc/ssh/ssh_host_ed25519_key",
+                "/etc/ssh/ssh_host_ecdsa_key"
+            ],
+            "Deadline": 3600,
+            "IdleTimeout": 180
+        },
+        {
+            "Listen": "0.0.0.0:2222",
+            "HostKeys": [
+                "/etc/ssh/ssh_host_ed25519_key",
+                "/etc/ssh/ssh_host_ecdsa_key"
+            ],
+            "Deadline": 3600,
+            "IdleTimeout": 180
+        }
+    ]
+}
