@@ -1,4 +1,4 @@
-package main
+package mensa
 
 import (
 	"github.com/gliderlabs/ssh"
