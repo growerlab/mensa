@@ -37,6 +37,8 @@ type Context struct {
 	RepoOwner string
 	// 仓库地址中的 仓库名
 	RepoName string
+	// 仓库的具体地址
+	RepoPath string
 	// 推送人 / 拉取人
 	// 	当用户提交、拉取仓库时，应该要知道这个操作者是谁
 	// 	如果仓库是公共的，那么可以忽略这个操作者字段
@@ -66,6 +68,7 @@ func BuildContextFromHTTP(uri *url.URL) (*Context, error) {
 		RequestURL: uri,
 		RepoOwner:  paths[0],
 		RepoName:   paths[1],
+		RepoPath:   "", // TODO 仓库的具体地址
 		Operator:   operator,
 	}, nil
 }

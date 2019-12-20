@@ -10,6 +10,6 @@ func init() {
 }
 
 func Run() error {
-	go RunGitHttpServer(":8080", nil)
+	go RunGitHttpServer(":8080", "git", nil, nil)
 	return nil
 }
