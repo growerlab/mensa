@@ -256,7 +256,7 @@ func (g *GitHttpServer) packetWrite(str string) []byte {
 	return []byte(s + str)
 }
 
-func (g *GitHttpServer) sendFile(content_type string, ctx *requestContext) {
+func (g *GitHttpServer) sendFile(contentType string, ctx *requestContext) {
 	w, r := ctx.w, ctx.r
 	reqFile := path.Join(ctx.Dir, ctx.File)
 
@@ -265,14 +265,14 @@ func (g *GitHttpServer) sendFile(content_type string, ctx *requestContext) {
 		g.httpRender(w, http.StatusNotFound, "not found")
 		return
 	}
-	w.Header().Set("Content-Type", content_type)
+	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", f.Size()))
 	w.Header().Set("Last-Modified", f.ModTime().Format(http.TimeFormat))
 	http.ServeFile(w, r, reqFile)
 }
 
-func (g *GitHttpServer) hasAccess(r *http.Request, dir string, rpc string, check_content_type bool) bool {
-	if check_content_type {
+func (g *GitHttpServer) hasAccess(r *http.Request, dir string, rpc string, checkContentType bool) bool {
+	if checkContentType {
 		if r.Header.Get("Content-Type") != fmt.Sprintf("application/x-git-%s-request", rpc) {
 			return false
 		}
