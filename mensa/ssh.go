@@ -43,7 +43,6 @@ func RunGitSSHServer(listen, hostKey string, entryer Entryer) {
 	}
 }
 
-// MultiServers multi instance
 type GitSSHServer struct {
 	entryer Entryer
 

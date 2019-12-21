@@ -11,7 +11,7 @@ func main() {
 	defer fmt.Println("=================================")
 	fmt.Println(mensa.UA)
 	fmt.Println("BuiltTime: ", mensa.BUILDTIME)
-	fmt.Println("Commit: ", mensa.BUILDCOMMIT)
+	fmt.Println("CommitID: ", mensa.BUILDCOMMIT)
 	fmt.Println("GoVersion: ", mensa.GOVERSION)
 
 	if err := mensa.Run(); err != nil {

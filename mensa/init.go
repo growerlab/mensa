@@ -22,5 +22,5 @@ func init() {
 func Run() error {
 	go RunGitHttpServer(":8080", "git", nil, nil)
 	go RunGitSSHServer(":8022", "~/.ssh/id_rsa", nil)
-	return nil
+	select {}
 }
