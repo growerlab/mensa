@@ -1,10 +1,20 @@
 package main
 
-import "github.com/growerlab/mensa/mensa"
+import (
+	"fmt"
+
+	"github.com/growerlab/mensa/mensa"
+)
 
 func main() {
-	//fmt.Fprintf(os.Stderr, "%v", me)
+	fmt.Println("=================================")
+	defer fmt.Println("=================================")
+	fmt.Println(mensa.UA)
+	fmt.Println("BuiltTime: ", mensa.BUILDTIME)
+	fmt.Println("Commit: ", mensa.BUILDCOMMIT)
+	fmt.Println("GoVersion: ", mensa.GOVERSION)
+
 	if err := mensa.Run(); err != nil {
 		panic(err)
 	}
-} 
+}

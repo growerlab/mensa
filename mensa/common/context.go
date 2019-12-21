@@ -29,10 +29,13 @@ type Operator struct {
 type Context struct {
 	// 推送类型（http[s]、ssh、git）
 	Type ProtType
-	// 原始url
+	// ssh: 原始commands
+	RawCommands []string
+	// http: 原始url/commands
 	RawURL string
-	// 解析后的url
+	// http: 解析后的url
 	RequestURL *url.URL
+
 	// 仓库地址中的owner字段
 	RepoOwner string
 	// 仓库地址中的 仓库名
@@ -52,7 +55,7 @@ func BuildContextFromHTTP(uri *url.URL) (*Context, error) {
 		return r == rune('/') || r == rune('.')
 	})
 	if len(paths) < 2 {
-		return nil, errors.Errorf("invalid repo url: %s", uri.String())
+		return nil, errors.Errorf("invalid repo path: %s", uri.Path)
 	}
 
 	var operator *Operator = nil
@@ -73,6 +76,30 @@ func BuildContextFromHTTP(uri *url.URL) (*Context, error) {
 	}, nil
 }
 
-func BuildContextFromSSH(sshSsession ssh.Session) *Context {
-	return nil
+func BuildContextFromSSH(session ssh.Session) (*Context, error) {
+	commands := session.Command()
+	if len(commands) < 2 {
+		return nil, errors.Errorf("%v commands is invalid", commands)
+	}
+
+	gitPath := commands[1]
+	paths := strings.FieldsFunc(gitPath, func(r rune) bool {
+		return r == rune('/') || r == rune('.')
+	})
+	if len(paths) < 2 {
+		return nil, errors.Errorf("invalid repo path: %s", gitPath)
+	}
+
+	var operator = &Operator{
+		SSHPublicKey: session.PublicKey(),
+	}
+
+	return &Context{
+		Type:        ProtTypeSSH,
+		RawCommands: commands,
+		RepoOwner:   paths[0],
+		RepoName:    paths[1],
+		RepoPath:    "", // TODO 仓库的地址
+		Operator:    operator,
+	}, nil
 }

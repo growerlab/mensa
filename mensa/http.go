@@ -18,12 +18,14 @@ import (
 	"github.com/pkg/errors"
 )
 
-func RunGitHttpServer(addr, gitPath string, logger io.Writer, entryer Entryer) {
+// TODO 平滑重启
+
+func RunGitHttpServer(listen, gitBinPath string, logger io.Writer, entryer Entryer) {
 	server := &GitHttpServer{
-		addr:    addr,
-		entryer: entryer,
-		gitPath: gitPath,
-		logger:  logger,
+		listen:     listen,
+		entryer:    entryer,
+		gitBinPath: gitBinPath,
+		logger:     logger,
 	}
 	err := server.Start()
 	if err != nil {
@@ -49,9 +51,9 @@ type GitHttpServer struct {
 	// 当有新的连接时，先执行该『关卡』
 	entryer Entryer
 	// 服务器的监听地址(eg. host:port)
-	addr string
+	listen string
 	// git bin path
-	gitPath string
+	gitBinPath string
 	// logger
 	logger io.Writer
 
@@ -66,7 +68,7 @@ func (g *GitHttpServer) Start() error {
 
 	g.prepre()
 
-	if err := http.ListenAndServe(g.addr, g); err != nil {
+	if err := http.ListenAndServe(g.listen, g); err != nil {
 		return errors.WithStack(err)
 	}
 	return nil
@@ -76,21 +78,16 @@ func (g *GitHttpServer) validate() error {
 	if g.entryer == nil {
 		return errors.New("entryer is required")
 	}
-	if g.addr == "" {
+	if g.listen == "" {
 		return errors.New("addr is required")
 	}
-	if !strings.Contains(g.addr, ":") {
-		return errors.Errorf("addr is invalid: %s", g.addr)
+	if !strings.Contains(g.listen, ":") {
+		return errors.Errorf("addr is invalid: %s", g.listen)
 	}
 	return nil
 }
 
 func (g *GitHttpServer) prepre() {
-	if g.logger != nil {
-		log.SetPrefix("MENSA")
-		log.SetOutput(g.logger)
-	}
-
 	g.services = map[string]service{
 		"(.*?)/git-upload-pack$":                       service{"POST", g.serviceRpc, "upload-pack"},
 		"(.*?)/git-receive-pack$":                      service{"POST", g.serviceRpc, "receive-pack"},
@@ -203,7 +200,7 @@ func (g *GitHttpServer) serviceRpc(ctx *requestContext) error {
 	args := []string{rpc, "--stateless-rpc", dir}
 
 	// TODO 这里是否应该使用 ContextCommand 来给命令一个超时时间？
-	cmd := exec.Command(g.gitPath, args...)
+	cmd := exec.Command(g.gitBinPath, args...)
 	cmd.Dir = dir
 	cmd.Stdin = body
 	cmd.Stdout = w
@@ -331,7 +328,7 @@ func (g *GitHttpServer) updateServerInfo(dir string) (string, error) {
 }
 
 func (g *GitHttpServer) gitCommand(dir string, args ...string) (string, error) {
-	cmd := exec.Command(g.gitPath, args...)
+	cmd := exec.Command(g.gitBinPath, args...)
 	cmd.Dir = dir
 	out, err := cmd.Output()
 	return string(out), errors.WithStack(err)
