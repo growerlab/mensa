@@ -1,0 +1,13 @@
+default:
+  user: git
+  listen: 0.0.0.0:22
+  host_keys:
+    - /etc/ssh/ssh_host_ed25519_key
+    - /etc/ssh/ssh_host_ecdsa_key
+  deadline: 3600
+  idle_timeout: 180
+
+product: &default
+dev: &default
+  user: moli
+  listen: 0.0.0.0:8022
