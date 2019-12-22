@@ -7,7 +7,7 @@ default:
   deadline: 3600
   idle_timeout: 180
 
-product: &default
+production: &default
 dev: &default
   user: moli
   listen: 0.0.0.0:8022
