@@ -34,6 +34,9 @@ func LoadConfig() error {
 		return errors.WithStack(err)
 	}
 	env := os.Getenv(DefaultENV)
+	if env == "" {
+		env = DefaultENV
+	}
 	config, ok = envConfig[env]
 	if !ok {
 		return errors.New("not found config by env: " + env)
