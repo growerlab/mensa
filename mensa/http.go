@@ -2,6 +2,7 @@ package mensa
 
 import (
 	"compress/gzip"
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -15,18 +16,45 @@ import (
 	"time"
 
 	"github.com/growerlab/mensa/mensa/common"
+	"github.com/growerlab/mensa/mensa/conf"
 	"github.com/pkg/errors"
 )
 
 // TODO 平滑重启
 
-func RunGitHttpServer(listen, gitBinPath string, logger io.Writer, entryer Entryer) {
-	server := &GitHttpServer{
-		listen:     listen,
-		entryer:    entryer,
-		gitBinPath: gitBinPath,
-		logger:     logger,
+func RunGitHttpServer(cfg *conf.Config, entryer Entryer) {
+	deadline := DefaultDeadline
+	idleTimeout := DefaultIdleTimeout
+
+	if cfg.Deadline > 0 {
+		deadline = cfg.Deadline
 	}
+	if cfg.IdleTimeout > 0 {
+		idleTimeout = cfg.IdleTimeout
+	}
+
+	server := &GitHttpServer{
+		listen:      cfg.HttpListen,
+		entryer:     entryer,
+		gitBinPath:  cfg.GitPath,
+		deadline:    deadline,
+		idleTimeout: idleTimeout,
+	}
+
+	server.services = map[string]service{
+		"(.*?)/git-upload-pack$":                       service{"POST", server.serviceRpc, "upload-pack"},
+		"(.*?)/git-receive-pack$":                      service{"POST", server.serviceRpc, "receive-pack"},
+		"(.*?)/info/refs$":                             service{"GET", server.getInfoRefs, ""},
+		"(.*?)/HEAD$":                                  service{"GET", server.getTextFile, ""},
+		"(.*?)/objects/info/alternates$":               service{"GET", server.getTextFile, ""},
+		"(.*?)/objects/info/http-alternates$":          service{"GET", server.getTextFile, ""},
+		"(.*?)/objects/info/packs$":                    service{"GET", server.getInfoPacks, ""},
+		"(.*?)/objects/info/[^/]*$":                    service{"GET", server.getTextFile, ""},
+		"(.*?)/objects/[0-9a-f]{2}/[0-9a-f]{38}$":      service{"GET", server.getLooseObject, ""},
+		"(.*?)/objects/pack/pack-[0-9a-f]{40}\\.pack$": service{"GET", server.getPackFile, ""},
+		"(.*?)/objects/pack/pack-[0-9a-f]{40}\\.idx$":  service{"GET", server.getIdxFile, ""},
+	}
+
 	err := server.Start()
 	if err != nil {
 		panic(err)
@@ -55,7 +83,10 @@ type GitHttpServer struct {
 	// git bin path
 	gitBinPath string
 	// logger
-	logger io.Writer
+	// logger io.Writer
+
+	deadline    int
+	idleTimeout int
 
 	// services
 	services map[string]service
@@ -88,19 +119,7 @@ func (g *GitHttpServer) validate() error {
 }
 
 func (g *GitHttpServer) prepre() {
-	g.services = map[string]service{
-		"(.*?)/git-upload-pack$":                       service{"POST", g.serviceRpc, "upload-pack"},
-		"(.*?)/git-receive-pack$":                      service{"POST", g.serviceRpc, "receive-pack"},
-		"(.*?)/info/refs$":                             service{"GET", g.getInfoRefs, ""},
-		"(.*?)/HEAD$":                                  service{"GET", g.getTextFile, ""},
-		"(.*?)/objects/info/alternates$":               service{"GET", g.getTextFile, ""},
-		"(.*?)/objects/info/http-alternates$":          service{"GET", g.getTextFile, ""},
-		"(.*?)/objects/info/packs$":                    service{"GET", g.getInfoPacks, ""},
-		"(.*?)/objects/info/[^/]*$":                    service{"GET", g.getTextFile, ""},
-		"(.*?)/objects/[0-9a-f]{2}/[0-9a-f]{38}$":      service{"GET", g.getLooseObject, ""},
-		"(.*?)/objects/pack/pack-[0-9a-f]{40}\\.pack$": service{"GET", g.getPackFile, ""},
-		"(.*?)/objects/pack/pack-[0-9a-f]{40}\\.idx$":  service{"GET", g.getIdxFile, ""},
-	}
+
 }
 
 func (g *GitHttpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -118,7 +137,7 @@ func (g *GitHttpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	err = g.entryer.Prep(ctx)
 	if err != nil {
-		g.entryer.Fail(err)
+		g.httpRender(w, g.entryer.HttpStatus(), g.entryer.HttpStatusMessage())
 		return
 	}
 
@@ -126,7 +145,7 @@ func (g *GitHttpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for match, service := range g.services {
 		re, err := regexp.Compile(match)
 		if err != nil {
-			log.Print(err)
+			log.Print(err, '\n')
 		}
 
 		if m := re.FindStringSubmatch(r.URL.Path); m != nil {
@@ -199,8 +218,11 @@ func (g *GitHttpServer) serviceRpc(ctx *requestContext) error {
 
 	args := []string{rpc, "--stateless-rpc", dir}
 
-	// TODO 这里是否应该使用 ContextCommand 来给命令一个超时时间？
-	cmd := exec.Command(g.gitBinPath, args...)
+	// deadline
+	cmdCtx, cancel := context.WithTimeout(context.Background(), time.Duration(g.deadline)*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(cmdCtx, g.gitBinPath, args...)
 	cmd.Dir = dir
 	cmd.Stdin = body
 	cmd.Stdout = w

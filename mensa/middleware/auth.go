@@ -1,7 +1,12 @@
 package middleware
 
-import "github.com/growerlab/mensa/mensa/common"
+import (
+	"net/http"
 
-func Authenticate(ctx *common.Context) error {
-	return nil
+	"github.com/growerlab/mensa/mensa/common"
+)
+
+func Authenticate(ctx *common.Context) (httpCode int, err error) {
+
+	return http.StatusOK, nil
 }

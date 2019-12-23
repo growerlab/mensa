@@ -7,6 +7,7 @@ default: &base
     - /etc/ssh/ssh_host_ecdsa_key
   deadline: 3600
   idle_timeout: 180
+  git_path: /usr/bin/git
 
 production:
   <<: *base

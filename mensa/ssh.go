@@ -2,15 +2,14 @@ package mensa
 
 import (
 	"context"
-	"io"
 	"log"
-	"os"
 	"os/exec"
 	"strings"
 	"time"
 
 	"github.com/gliderlabs/ssh"
 	"github.com/growerlab/mensa/mensa/common"
+	"github.com/growerlab/mensa/mensa/conf"
 	"github.com/pkg/errors"
 )
 
@@ -27,15 +26,25 @@ var AllowedCommandMap = map[string]string{
 	"git-upload-archive": "upload-archive",
 }
 
-func RunGitSSHServer(listen, hostKey string, entryer Entryer) {
+func RunGitSSHServer(cfg *conf.Config, entryer Entryer) {
+	deadline := DefaultDeadline
+	idleTimeout := DefaultIdleTimeout
+
+	if cfg.Deadline > 0 {
+		deadline = cfg.Deadline
+	}
+	if cfg.IdleTimeout > 0 {
+		idleTimeout = cfg.IdleTimeout
+	}
+
 	gitServer := &GitSSHServer{
 		entryer:     entryer,
-		logger:      nil,
-		gitUser:     "git",
-		listen:      listen,
-		hostKey:     hostKey,
-		deadline:    DefaultDeadline,
-		idleTimeout: DefaultIdleTimeout,
+		gitUser:     cfg.User,
+		listen:      cfg.Listen,
+		hostKeys:    cfg.HostKeys,
+		gitBinPath:  cfg.GitPath,
+		deadline:    deadline,
+		idleTimeout: idleTimeout,
 	}
 	err := gitServer.Start()
 	if err != nil {
@@ -46,16 +55,16 @@ func RunGitSSHServer(listen, hostKey string, entryer Entryer) {
 type GitSSHServer struct {
 	entryer Entryer
 
-	logger io.Writer
+	// logger io.Writer
 
 	srv *ssh.Server
 
-	gitBinPath  string // bin git
-	gitUser     string // default "git"
-	listen      string // listen addr
-	hostKey     string // host key
-	deadline    int    // default 3600
-	idleTimeout int    // default 120
+	gitBinPath  string   // bin git
+	gitUser     string   // default "git"
+	listen      string   // listen addr
+	hostKeys    []string // host keys
+	deadline    int      // default 3600
+	idleTimeout int      // default 120
 }
 
 // Shutdown close all server and wait.
@@ -80,6 +89,9 @@ func (g *GitSSHServer) Start() error {
 
 func (g *GitSSHServer) handler(session ssh.Session) {
 	var err error
+	defer func() {
+		session.Close()
+	}()
 
 	ctx, err := common.BuildContextFromSSH(session)
 	if err != nil {
@@ -90,7 +102,7 @@ func (g *GitSSHServer) handler(session ssh.Session) {
 
 	err = g.entryer.Prep(ctx)
 	if err != nil {
-		g.entryer.Fail(err)
+		_, _ = session.Write([]byte(g.entryer.HttpStatusMessage()))
 		return
 	}
 
@@ -123,14 +135,10 @@ func (g *GitSSHServer) validate() error {
 	if !strings.Contains(g.listen, ":") {
 		return errors.New("invalid listen addr")
 	}
-	if _, err := os.Stat(g.hostKey); os.IsNotExist(err) {
-		return errors.Errorf("%s is not exist", g.hostKey)
-	}
 	return nil
 }
 
 func (g *GitSSHServer) prepre() {
-	log.SetOutput(g.logger)
 }
 
 func (g *GitSSHServer) run() error {
@@ -145,12 +153,7 @@ func (g *GitSSHServer) run() error {
 		return true
 	})
 
-	hostKeyOption := ssh.HostKeyFile(g.hostKey)
-
 	defaultOption := func(server *ssh.Server) error {
-		if g.idleTimeout == 0 {
-			g.idleTimeout = DefaultIdleTimeout
-		}
 		server.IdleTimeout = time.Duration(g.idleTimeout) * time.Second
 		server.MaxTimeout = 30 * time.Second
 		server.Version = UA
@@ -160,9 +163,11 @@ func (g *GitSSHServer) run() error {
 	g.srv = &ssh.Server{Handler: g.handler}
 	g.srv.SetOption(publicKeyHanderOption)
 	g.srv.SetOption(passwordOption)
-	g.srv.SetOption(hostKeyOption)
 	g.srv.SetOption(defaultOption)
-	g.srv.SetOption(ssh.NoPty())
+	g.srv.SetOption(ssh.NoPty()) // TODO 这里是否应该调用 NoPty 还需要测试
+	for _, k := range g.hostKeys {
+		g.srv.SetOption(ssh.HostKeyFile(k))
+	}
 	err := g.srv.ListenAndServe()
 	return errors.WithStack(err)
 }

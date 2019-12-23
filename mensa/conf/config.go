@@ -3,6 +3,7 @@ package conf
 import (
 	"io/ioutil"
 	"os"
+	"strings"
 
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
@@ -19,8 +20,27 @@ type Config struct {
 	Listen      string   `yaml:"listen"`
 	HttpListen  string   `yaml:"http_listen"`
 	HostKeys    []string `yaml:"host_keys"`
+	GitPath     string   `yaml:"git_path"`
 	Deadline    int      `yaml:"deadline"`
 	IdleTimeout int      `yaml:"idle_timeout"`
+}
+
+func (c *Config) validate() error {
+	if c.User == "" {
+		return errors.New("git uesr is required")
+	}
+	if !strings.Contains(c.Listen, ":") || !strings.Contains(c.HttpListen, ":") {
+		return errors.New("listen addr is invalid")
+	}
+	for _, k := range c.HostKeys {
+		if _, err := os.Stat(k); os.IsNotExist(err) {
+			return errors.WithStack(err)
+		}
+	}
+	if _, err := os.Stat(c.GitPath); os.IsNotExist(err) {
+		return errors.WithStack(err)
+	}
+	return nil
 }
 
 func LoadConfig() error {
@@ -41,7 +61,7 @@ func LoadConfig() error {
 	if !ok {
 		return errors.New("not found config by env: " + env)
 	}
-	return nil
+	return config.validate()
 }
 
 func GetConfig() *Config {

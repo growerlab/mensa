@@ -32,7 +32,7 @@ func startInit(fn func() error) {
 }
 
 func Run() error {
-	go RunGitHttpServer(":8080", "git", nil, nil)
-	go RunGitSSHServer(":8022", "~/.ssh/id_rsa", nil)
+	go RunGitHttpServer(conf.GetConfig(), mids)
+	go RunGitSSHServer(conf.GetConfig(), mids)
 	select {}
 }
