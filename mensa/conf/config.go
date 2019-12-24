@@ -3,6 +3,7 @@ package conf
 import (
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -23,6 +24,7 @@ type Config struct {
 	GitPath     string   `yaml:"git_path"`
 	Deadline    int      `yaml:"deadline"`
 	IdleTimeout int      `yaml:"idle_timeout"`
+	GitRepoDir  string   `yaml:"git_repo_dir"`
 }
 
 func (c *Config) validate() error {
@@ -34,11 +36,14 @@ func (c *Config) validate() error {
 	}
 	for _, k := range c.HostKeys {
 		if _, err := os.Stat(k); os.IsNotExist(err) {
-			return errors.WithStack(err)
+			return errors.WithMessage(err, "host keys")
 		}
 	}
 	if _, err := os.Stat(c.GitPath); os.IsNotExist(err) {
-		return errors.WithStack(err)
+		return errors.WithMessage(err, "git path")
+	}
+	if _, err := os.Stat(c.GitRepoDir); os.IsNotExist(err) {
+		return errors.WithMessage(err, "git repo dir")
 	}
 	return nil
 }
@@ -60,6 +65,10 @@ func LoadConfig() error {
 	config, ok = envConfig[env]
 	if !ok {
 		return errors.New("not found config by env: " + env)
+	}
+	// for dev
+	if !strings.HasPrefix(config.GitRepoDir, "/") && env == "dev" {
+		config.GitRepoDir = filepath.Join(os.Getenv("GOPATH"), "src", "github.com/growerlab/mensa", config.GitRepoDir)
 	}
 	return config.validate()
 }

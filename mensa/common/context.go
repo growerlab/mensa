@@ -1,10 +1,13 @@
 package common
 
 import (
+	"log"
 	"net/url"
+	"path/filepath"
 	"strings"
 
 	"github.com/gliderlabs/ssh"
+	"github.com/growerlab/mensa/mensa/conf"
 	"github.com/pkg/errors"
 )
 
@@ -35,7 +38,6 @@ type Context struct {
 	RawURL string
 	// http: 解析后的url
 	RequestURL *url.URL
-
 	// 仓库地址中的owner字段
 	RepoOwner string
 	// 仓库地址中的 仓库名
@@ -51,11 +53,9 @@ type Context struct {
 }
 
 func BuildContextFromHTTP(uri *url.URL) (*Context, error) {
-	paths := strings.FieldsFunc(uri.Path, func(r rune) bool {
-		return r == rune('/') || r == rune('.')
-	})
-	if len(paths) < 2 {
-		return nil, errors.Errorf("invalid repo path: %s", uri.Path)
+	repoOwner, repoName, repoPath, err := buildRepoInfoByPath(uri.Path)
+	if err != nil {
+		return nil, err
 	}
 
 	var operator *Operator = nil
@@ -69,9 +69,9 @@ func BuildContextFromHTTP(uri *url.URL) (*Context, error) {
 		Type:       ProtTypeHTTP,
 		RawURL:     uri.String(),
 		RequestURL: uri,
-		RepoOwner:  paths[0],
-		RepoName:   paths[1],
-		RepoPath:   "", // TODO 仓库的具体地址
+		RepoOwner:  repoOwner,
+		RepoName:   repoName,
+		RepoPath:   repoPath, // 仓库的具体地址
 		Operator:   operator,
 	}, nil
 }
@@ -83,23 +83,40 @@ func BuildContextFromSSH(session ssh.Session) (*Context, error) {
 	}
 
 	gitPath := commands[1]
-	paths := strings.FieldsFunc(gitPath, func(r rune) bool {
-		return r == rune('/') || r == rune('.')
-	})
-	if len(paths) < 2 {
-		return nil, errors.Errorf("invalid repo path: %s", gitPath)
-	}
-
-	var operator = &Operator{
-		SSHPublicKey: session.PublicKey(),
+	repoOwner, repoName, repoPath, err := buildRepoInfoByPath(gitPath)
+	if err != nil {
+		return nil, err
 	}
 
 	return &Context{
 		Type:        ProtTypeSSH,
 		RawCommands: commands,
-		RepoOwner:   paths[0],
-		RepoName:    paths[1],
-		RepoPath:    "", // TODO 仓库的地址
-		Operator:    operator,
+		RepoOwner:   repoOwner,
+		RepoName:    repoName,
+		RepoPath:    repoPath, // 仓库的地址
+		Operator: &Operator{
+			SSHPublicKey: session.PublicKey(),
+		},
 	}, nil
+}
+
+func buildRepoInfoByPath(path string) (repoOwner, repoName, repoPath string, err error) {
+	defer func() {
+		if e := recover(); e != nil {
+			log.Println("build repo info was err: ", e)
+		}
+	}()
+
+	paths := strings.FieldsFunc(path, func(r rune) bool {
+		return r == rune('/') || r == rune('.')
+	})
+	if len(paths) < 2 {
+		err = errors.Errorf("invalid repo path: %s", path)
+		return
+	}
+
+	repoOwner = paths[0]
+	repoName = paths[1]
+	repoPath = filepath.Join(conf.GetConfig().GitRepoDir, repoOwner[:2], repoName[:2])
+	return
 }

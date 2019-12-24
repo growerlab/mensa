@@ -8,6 +8,7 @@ default: &base
   deadline: 3600
   idle_timeout: 180
   git_path: /usr/bin/git
+  git_repo_dir: /home/git/repos # repos base dir
 
 production:
   <<: *base
@@ -17,3 +18,4 @@ dev:
   user: moli
   listen: 0.0.0.0:8022
   http_listen: 0.0.0.0:8080
+  git_repo_dir: test/repos

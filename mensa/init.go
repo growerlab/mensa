@@ -12,7 +12,7 @@ import (
 var mids *middleware.Middleware
 var logger io.Writer = os.Stdout
 
-func init() {
+func initialize() {
 	// 初始化中间件
 	mids = new(middleware.Middleware)
 	mids.Add(middleware.Authenticate)
@@ -32,6 +32,8 @@ func startInit(fn func() error) {
 }
 
 func Run() error {
+	initialize()
+
 	go RunGitHttpServer(conf.GetConfig(), mids)
 	go RunGitSSHServer(conf.GetConfig(), mids)
 	select {}

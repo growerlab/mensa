@@ -18,3 +18,5 @@ vendor
 main
 
 test.go
+
+/test/repos
