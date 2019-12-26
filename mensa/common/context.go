@@ -117,6 +117,6 @@ func buildRepoInfoByPath(path string) (repoOwner, repoName, repoPath string, err
 
 	repoOwner = paths[0]
 	repoName = paths[1]
-	repoPath = filepath.Join(conf.GetConfig().GitRepoDir, repoOwner[:2], repoName[:2])
+	repoPath = filepath.Join(conf.GetConfig().GitRepoDir, repoOwner[:2], repoName[:2], repoOwner, repoName)
 	return
 }

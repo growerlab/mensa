@@ -160,7 +160,7 @@ func (g *GitHttpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 			err = service.Do(&requestContext{w, r, rpc, dir, file})
 			if err != nil {
-				log.Printf("service.Do was err:%v\n", err)
+				log.Printf("service.Do was err:%+v\n", err)
 			}
 			return
 		}
@@ -239,10 +239,9 @@ func (g *GitHttpServer) getInfoRefs(ctx *requestContext) error {
 	w, r, dir := ctx.w, ctx.r, ctx.Dir
 	serviceName := g.getServiceType(r)
 	access := g.hasAccess(r, dir, serviceName, false)
-
 	if access {
 		args := []string{serviceName, "--stateless-rpc", "--advertise-refs", "."}
-		fmt.Println(args)
+		log.Println("get info refs command args: ", args)
 		refs, err := g.gitCommand(dir, args...)
 		if err != nil {
 			return err

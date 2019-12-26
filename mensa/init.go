@@ -18,7 +18,7 @@ func initialize() {
 	mids.Add(middleware.Authenticate)
 
 	// 初始化日志输出
-	log.SetPrefix("MENSA")
+	log.SetPrefix("[MENSA] ")
 	log.SetOutput(logger)
 
 	// 初始化依赖顺序的「初始化」
