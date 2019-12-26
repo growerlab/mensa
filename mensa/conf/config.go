@@ -11,7 +11,7 @@ import (
 )
 
 const DefaultConfigPath = "conf/config.yaml"
-const DefaultENV = "env"
+const DefaultENV = "dev"
 
 var envConfig map[string]*Config
 var config *Config
@@ -58,7 +58,7 @@ func LoadConfig() error {
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	env := os.Getenv(DefaultENV)
+	env := os.Getenv("ENV")
 	if env == "" {
 		env = DefaultENV
 	}

@@ -19,3 +19,4 @@ dev:
   listen: 0.0.0.0:8022
   http_listen: 0.0.0.0:8080
   git_repo_dir: test/repos
+  host_keys: []
