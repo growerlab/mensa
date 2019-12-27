@@ -9,6 +9,8 @@ type Entryer interface {
 	Prep(ctx *common.Context) (err error)
 	// 当进入失败时，应返回http错误码
 	HttpStatus() int
-	// 当进入失败时，应返回错误的信息
+	// 当进入失败时，应返回http错误的信息
 	HttpStatusMessage() string
+	// 错误码
+	LastErr() error
 }

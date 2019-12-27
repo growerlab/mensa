@@ -9,14 +9,11 @@ import (
 	"github.com/growerlab/mensa/mensa/middleware"
 )
 
-var mids *middleware.Middleware
+// var mids *middleware.Middleware
+var manager *Manager
 var logger io.Writer = os.Stdout
 
 func initialize() {
-	// 初始化中间件
-	mids = new(middleware.Middleware)
-	mids.Add(middleware.Authenticate)
-
 	// 初始化日志输出
 	log.SetPrefix("[MENSA] ")
 	log.SetOutput(logger)
@@ -31,10 +28,16 @@ func startInit(fn func() error) {
 	}
 }
 
-func Run() error {
+func Run() {
 	initialize()
 
-	go RunGitHttpServer(conf.GetConfig(), mids)
-	go RunGitSSHServer(conf.GetConfig(), mids)
-	select {}
+	// 初始化中间件
+	entry := new(middleware.Middleware)
+	entry.Add(middleware.Authenticate)
+
+	// 初始化管理器
+	manager = NewManager(entry)
+	manager.RegisterServer(NewGitHttpServer(conf.GetConfig()))
+	manager.RegisterServer(NewGitSSHServer(conf.GetConfig()))
+	manager.Run()
 }

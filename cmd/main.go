@@ -14,7 +14,5 @@ func main() {
 	fmt.Println("=================================")
 	fmt.Println(mensa.UA)
 
-	if err := mensa.Run(); err != nil {
-		panic(err)
-	}
+	mensa.Run()
 }

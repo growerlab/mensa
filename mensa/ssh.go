@@ -26,7 +26,7 @@ var AllowedCommandMap = map[string]string{
 	"git-upload-archive": "upload-archive",
 }
 
-func RunGitSSHServer(cfg *conf.Config, entryer Entryer) {
+func NewGitSSHServer(cfg *conf.Config) *GitSSHServer {
 	deadline := DefaultDeadline
 	idleTimeout := DefaultIdleTimeout
 
@@ -38,7 +38,6 @@ func RunGitSSHServer(cfg *conf.Config, entryer Entryer) {
 	}
 
 	gitServer := &GitSSHServer{
-		entryer:     entryer,
 		gitUser:     cfg.User,
 		listen:      cfg.Listen,
 		hostKeys:    cfg.HostKeys,
@@ -46,19 +45,13 @@ func RunGitSSHServer(cfg *conf.Config, entryer Entryer) {
 		deadline:    deadline,
 		idleTimeout: idleTimeout,
 	}
-	err := gitServer.Start()
-	if err != nil {
-		panic(err)
-	}
+	return gitServer
 }
 
 type GitSSHServer struct {
-	entryer Entryer
+	handler ServerHandler
 
-	// logger io.Writer
-
-	srv *ssh.Server
-
+	srv         *ssh.Server
 	gitBinPath  string   // bin git
 	gitUser     string   // default "git"
 	listen      string   // listen addr
@@ -77,7 +70,9 @@ func (g *GitSSHServer) Shutdown() error {
 }
 
 // Start server
-func (g *GitSSHServer) Start() error {
+func (g *GitSSHServer) ListenAndServe(handler ServerHandler) error {
+	g.handler = handler
+
 	if err := g.validate(); err != nil {
 		return err
 	}
@@ -87,7 +82,7 @@ func (g *GitSSHServer) Start() error {
 	return nil
 }
 
-func (g *GitSSHServer) handler(session ssh.Session) {
+func (g *GitSSHServer) sessionHandler(session ssh.Session) {
 	var err error
 	defer func() {
 		session.Close()
@@ -100,9 +95,9 @@ func (g *GitSSHServer) handler(session ssh.Session) {
 	}
 	log.Println("git handler commands: ", ctx.RawCommands)
 
-	err = g.entryer.Prep(ctx)
-	if err != nil {
-		_, _ = session.Write([]byte(g.entryer.HttpStatusMessage()))
+	result := g.handler(ctx)
+	if result != nil {
+		_, _ = session.Write([]byte(result.HttpMessage))
 		return
 	}
 
@@ -160,7 +155,7 @@ func (g *GitSSHServer) run() error {
 		return nil
 	}
 
-	g.srv = &ssh.Server{Handler: g.handler}
+	g.srv = &ssh.Server{Handler: g.sessionHandler}
 	g.srv.SetOption(publicKeyHanderOption)
 	g.srv.SetOption(passwordOption)
 	g.srv.SetOption(defaultOption)

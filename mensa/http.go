@@ -20,9 +20,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// TODO 平滑重启
-
-func RunGitHttpServer(cfg *conf.Config, entryer Entryer) {
+func NewGitHttpServer(cfg *conf.Config) *GitHttpServer {
 	deadline := DefaultDeadline
 	idleTimeout := DefaultIdleTimeout
 
@@ -35,7 +33,6 @@ func RunGitHttpServer(cfg *conf.Config, entryer Entryer) {
 
 	server := &GitHttpServer{
 		listen:      cfg.HttpListen,
-		entryer:     entryer,
 		gitBinPath:  cfg.GitPath,
 		deadline:    deadline,
 		idleTimeout: idleTimeout,
@@ -54,11 +51,7 @@ func RunGitHttpServer(cfg *conf.Config, entryer Entryer) {
 		"(.*?)/objects/pack/pack-[0-9a-f]{40}\\.pack$": service{"GET", server.getPackFile, ""},
 		"(.*?)/objects/pack/pack-[0-9a-f]{40}\\.idx$":  service{"GET", server.getIdxFile, ""},
 	}
-
-	err := server.Start()
-	if err != nil {
-		panic(err)
-	}
+	return server
 }
 
 type requestContext struct {
@@ -76,25 +69,27 @@ type service struct {
 }
 
 type GitHttpServer struct {
-	// 当有新的连接时，先执行该『关卡』
-	entryer Entryer
 	// 服务器的监听地址(eg. host:port)
 	listen string
 	// git bin path
 	gitBinPath string
 	// logger
 	// logger io.Writer
-
-	deadline    int
+	// 最长执行时间
+	deadline int
+	// 限制最大时间
 	idleTimeout int
-
 	// services
 	services map[string]service
+	// 回调
+	handler ServerHandler
 }
 
-func (g *GitHttpServer) Start() error {
+func (g *GitHttpServer) ListenAndServe(handler ServerHandler) error {
+	g.handler = handler
+
 	if err := g.validate(); err != nil {
-		return errors.WithStack(err)
+		return err
 	}
 
 	g.prepre()
@@ -106,9 +101,6 @@ func (g *GitHttpServer) Start() error {
 }
 
 func (g *GitHttpServer) validate() error {
-	if g.entryer == nil {
-		return errors.New("entryer is required")
-	}
 	if g.listen == "" {
 		return errors.New("addr is required")
 	}
@@ -120,6 +112,11 @@ func (g *GitHttpServer) validate() error {
 
 func (g *GitHttpServer) prepre() {
 
+}
+
+// TODO 平滑重启
+func (g *GitHttpServer) Shutdown() error {
+	return nil
 }
 
 func (g *GitHttpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -135,9 +132,9 @@ func (g *GitHttpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		g.httpRender(w, http.StatusBadRequest, "bad request")
 	}
 
-	err = g.entryer.Prep(ctx)
-	if err != nil {
-		g.httpRender(w, g.entryer.HttpStatus(), g.entryer.HttpStatusMessage())
+	result := g.handler(ctx)
+	if result != nil {
+		g.httpRender(w, result.HttpCode, result.HttpMessage)
 		return
 	}
 

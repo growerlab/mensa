@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/growerlab/mensa/mensa/common"
-	"github.com/pkg/errors"
 )
 
 type MiddlewareFunc func(*common.Context) (httpCode int, err error)
@@ -24,7 +23,7 @@ func (m *Middleware) Run(ctx *common.Context) error {
 	for _, fn := range m.midFuncs {
 		m.lastStatusCode, m.lastErr = fn(ctx)
 		if m.lastErr != nil {
-			return errors.WithStack(m.lastErr)
+			return m.lastErr
 		}
 	}
 	return nil
@@ -44,4 +43,8 @@ func (m *Middleware) HttpStatusMessage() string {
 		m.lastStatusCode = http.StatusOK
 	}
 	return http.StatusText(m.lastStatusCode)
+}
+
+func (m *Middleware) LastErr() error {
+	return m.lastErr
 }
