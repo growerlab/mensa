@@ -8,3 +8,11 @@ Rethinking the git transport protocol
 `ENV=production` 生产环境；
 
 `NOAUTH=true` 关闭验证（主要用于测试推拉等功能）
+
+
+### TODO
+
+- [x] HTTP Server
+- [x] SSH Server
+- [ ] Archive
+- [ ] Authenticate
