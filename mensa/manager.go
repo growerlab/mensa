@@ -39,7 +39,7 @@ func (m *Manager) RegisterServer(srv Server) {
 	m.servers = append(m.servers, srv)
 }
 
-// 允许server 并 等待
+// run server and waiting for end
 func (m *Manager) Run() {
 	var wg sync.WaitGroup
 	for _, s := range m.servers {
