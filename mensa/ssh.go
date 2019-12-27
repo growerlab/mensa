@@ -71,6 +71,7 @@ func (g *GitSSHServer) Shutdown() error {
 
 // Start server
 func (g *GitSSHServer) ListenAndServe(handler ServerHandler) error {
+	log.Printf("[ssh] git listen and serve: %v\n", g.listen)
 	g.handler = handler
 
 	if err := g.validate(); err != nil {
@@ -90,10 +91,10 @@ func (g *GitSSHServer) sessionHandler(session ssh.Session) {
 
 	ctx, err := common.BuildContextFromSSH(session)
 	if err != nil {
-		log.Printf("%v\n", err)
+		log.Printf("[ssh] %v\n", err)
 		return
 	}
-	log.Println("git handler commands: ", ctx.RawCommands)
+	log.Println("[ssh] git handler commands: ", ctx.RawCommands, ctx.RepoPath)
 
 	result := g.handler(ctx)
 	if result != nil {
@@ -103,7 +104,7 @@ func (g *GitSSHServer) sessionHandler(session ssh.Session) {
 
 	service, ok := AllowedCommandMap[ctx.RawCommands[0]]
 	if !ok {
-		log.Printf("invalid service: %s\n", ctx.RawCommands[0])
+		log.Printf("[ssh] invalid service: %s\n", ctx.RawCommands[0])
 		return
 	}
 
@@ -119,7 +120,7 @@ func (g *GitSSHServer) sessionHandler(session ssh.Session) {
 	cmd.Stdout = session
 	err = cmd.Run()
 	if err != nil {
-		log.Printf("git was err on running: %v\n", err)
+		log.Printf("[ssh] git was err on running: %v\n", err)
 	}
 }
 
@@ -155,7 +156,10 @@ func (g *GitSSHServer) run() error {
 		return nil
 	}
 
-	g.srv = &ssh.Server{Handler: g.sessionHandler}
+	g.srv = &ssh.Server{
+		Handler: g.sessionHandler,
+		Addr:    g.listen,
+	}
 	g.srv.SetOption(publicKeyHanderOption)
 	g.srv.SetOption(passwordOption)
 	g.srv.SetOption(defaultOption)

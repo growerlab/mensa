@@ -86,6 +86,7 @@ type GitHttpServer struct {
 }
 
 func (g *GitHttpServer) ListenAndServe(handler ServerHandler) error {
+	log.Printf("[http] git listen and serve: %v\n", g.listen)
 	g.handler = handler
 
 	if err := g.validate(); err != nil {
@@ -124,7 +125,7 @@ func (g *GitHttpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	preLog := fmt.Sprintf("IP: %s URL: %s [%s]", r.RemoteAddr, r.URL.String(), begin.Format(time.RFC3339))
 	defer func() {
 		end := time.Now()
-		log.Printf("%s-[%s] TAKE: %s\n", preLog, end.Format(time.RFC3339), end.Sub(begin))
+		log.Printf("[http] %s-[%s] TAKE: %s\n", preLog, end.Format(time.RFC3339), end.Sub(begin))
 	}()
 
 	ctx, err := common.BuildContextFromHTTP(r.URL)
@@ -146,6 +147,7 @@ func (g *GitHttpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if m := re.FindStringSubmatch(r.URL.Path); m != nil {
+			log.Println("[http] git handler commands: ", m)
 			if service.Method != r.Method {
 				g.httpRender(w, http.StatusMethodNotAllowed, "invalid method: "+r.Method)
 				return
@@ -157,7 +159,7 @@ func (g *GitHttpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 			err = service.Do(&requestContext{w, r, rpc, dir, file})
 			if err != nil {
-				log.Printf("service.Do was err:%+v\n", err)
+				log.Printf("[http] service.Do was err:%+v\n", err)
 			}
 			return
 		}
@@ -238,7 +240,6 @@ func (g *GitHttpServer) getInfoRefs(ctx *requestContext) error {
 	access := g.hasAccess(r, dir, serviceName, false)
 	if access {
 		args := []string{serviceName, "--stateless-rpc", "--advertise-refs", "."}
-		log.Println("get info refs command args: ", args)
 		refs, err := g.gitCommand(dir, args...)
 		if err != nil {
 			return err
