@@ -8,10 +8,11 @@ import (
 )
 
 func Authenticate(ctx *common.Context) (httpCode int, err error) {
+	httpCode = http.StatusOK
 	noauth := os.Getenv("NOAUTH")
 	if len(noauth) > 0 {
-		return http.StatusOK, nil
+		return
 	}
 
-	return http.StatusOK, nil
+	return
 }
