@@ -115,7 +115,6 @@ func (g *GitSSHServer) sessionHandler(session ssh.Session) {
 	args := []string{service, ctx.RepoPath}
 	cmd := exec.CommandContext(cmdCtx, g.gitBinPath, args...)
 	cmd.Dir = ctx.RepoPath
-	// TODO 这里使用pipe还是stdin，可能还有待测试
 	cmd.Stdin = session
 	cmd.Stdout = session
 	err = cmd.Run()
@@ -163,7 +162,6 @@ func (g *GitSSHServer) run() error {
 	g.srv.SetOption(publicKeyHanderOption)
 	g.srv.SetOption(passwordOption)
 	g.srv.SetOption(defaultOption)
-	g.srv.SetOption(ssh.NoPty()) // TODO 这里是否应该调用 NoPty 还需要测试
 	for _, k := range g.hostKeys {
 		g.srv.SetOption(ssh.HostKeyFile(k))
 	}
