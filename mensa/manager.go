@@ -1,7 +1,6 @@
 package mensa
 
 import (
-	"errors"
 	"sync"
 
 	"github.com/growerlab/mensa/mensa/common"
@@ -62,7 +61,7 @@ func (m *Manager) ServerHandler(ctx *common.Context) *Result {
 			return &Result{
 				HttpCode:    m.entry.HttpStatus(),
 				HttpMessage: m.entry.HttpStatusMessage(),
-				Err:         errors.New(m.entry.HttpStatusMessage()),
+				Err:         m.entry.LastErr(),
 			}
 		}
 	}
