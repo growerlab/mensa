@@ -1,12 +1,12 @@
-package mensa
+package src
 
 import (
 	"io"
 	"log"
 	"os"
 
-	"github.com/growerlab/mensa/mensa/conf"
-	"github.com/growerlab/mensa/mensa/middleware"
+	"github.com/growerlab/mensa/src/conf"
+	"github.com/growerlab/mensa/src/middleware"
 )
 
 // var mids *middleware.Middleware

@@ -1,4 +1,4 @@
-package mensa
+package src
 
 // Mensa version defined
 var (

@@ -3,7 +3,7 @@ package middleware
 import (
 	"net/http"
 
-	"github.com/growerlab/mensa/mensa/common"
+	"github.com/growerlab/mensa/src/common"
 )
 
 type MiddlewareFunc func(*common.Context) (httpCode int, err error)

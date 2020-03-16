@@ -1,4 +1,4 @@
-package mensa
+package src
 
 import (
 	"compress/gzip"
@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/growerlab/mensa/mensa/common"
-	"github.com/growerlab/mensa/mensa/conf"
+	"github.com/growerlab/mensa/src/common"
+	"github.com/growerlab/mensa/src/conf"
 	"github.com/pkg/errors"
 )
 

@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/gliderlabs/ssh"
-	"github.com/growerlab/mensa/mensa/conf"
+	"github.com/growerlab/mensa/src/conf"
 	"github.com/pkg/errors"
 )
 

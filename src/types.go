@@ -1,6 +1,6 @@
-package mensa
+package src
 
-import "github.com/growerlab/mensa/mensa/common"
+import "github.com/growerlab/mensa/src/common"
 
 // 入口
 // 	当用户连接到服务

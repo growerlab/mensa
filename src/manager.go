@@ -1,9 +1,9 @@
-package mensa
+package src
 
 import (
 	"sync"
 
-	"github.com/growerlab/mensa/mensa/common"
+	"github.com/growerlab/mensa/src/common"
 )
 
 type Result struct {

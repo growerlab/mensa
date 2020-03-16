@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/growerlab/mensa/mensa/common"
+	"github.com/growerlab/mensa/src/common"
 )
 
 func Authenticate(ctx *common.Context) (httpCode int, err error) {
