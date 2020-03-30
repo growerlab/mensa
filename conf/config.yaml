@@ -8,7 +8,7 @@ default: &base
   deadline: 3600
   idle_timeout: 180
   git_path: /usr/bin/git
-  git_repo_dir: /home/git/repositories # repos base dir
+  git_repo_dir: /data/repositories # repos base dir
 
 production:
   <<: *base
