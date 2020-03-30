@@ -38,9 +38,9 @@ func NewGitSSHServer(cfg *conf.Config) *GitSSHServer {
 	}
 
 	gitServer := &GitSSHServer{
-		gitUser:     cfg.User,
-		listen:      cfg.Listen,
-		hostKeys:    cfg.HostKeys,
+		gitUser: cfg.User,
+		listen:  cfg.Listen,
+		// hostKeys:    cfg.HostKeys,
 		gitBinPath:  cfg.GitPath,
 		deadline:    deadline,
 		idleTimeout: idleTimeout,
@@ -162,9 +162,9 @@ func (g *GitSSHServer) run() error {
 	g.srv.SetOption(publicKeyHanderOption)
 	g.srv.SetOption(passwordOption)
 	g.srv.SetOption(defaultOption)
-	for _, k := range g.hostKeys {
-		g.srv.SetOption(ssh.HostKeyFile(k))
-	}
+	// for _, k := range g.hostKeys {
+	// 	g.srv.SetOption(ssh.HostKeyFile(k))
+	// }
 	err := g.srv.ListenAndServe()
 	return errors.WithStack(err)
 }

@@ -17,14 +17,14 @@ var envConfig map[string]*Config
 var config *Config
 
 type Config struct {
-	User        string   `yaml:"user"`
-	Listen      string   `yaml:"listen"`
-	HttpListen  string   `yaml:"http_listen"`
-	HostKeys    []string `yaml:"host_keys"`
-	GitPath     string   `yaml:"git_path"`
-	Deadline    int      `yaml:"deadline"`
-	IdleTimeout int      `yaml:"idle_timeout"`
-	GitRepoDir  string   `yaml:"git_repo_dir"`
+	User       string `yaml:"user"`
+	Listen     string `yaml:"listen"`
+	HttpListen string `yaml:"http_listen"`
+	// HostKeys    []string `yaml:"host_keys"`
+	GitPath     string `yaml:"git_path"`
+	Deadline    int    `yaml:"deadline"`
+	IdleTimeout int    `yaml:"idle_timeout"`
+	GitRepoDir  string `yaml:"git_repo_dir"`
 }
 
 func (c *Config) validate() error {
@@ -34,11 +34,11 @@ func (c *Config) validate() error {
 	if !strings.Contains(c.Listen, ":") || !strings.Contains(c.HttpListen, ":") {
 		return errors.New("listen addr is invalid")
 	}
-	for _, k := range c.HostKeys {
-		if _, err := os.Stat(k); os.IsNotExist(err) {
-			return errors.WithMessage(err, "host keys")
-		}
-	}
+	// for _, k := range c.HostKeys {
+	// 	if _, err := os.Stat(k); os.IsNotExist(err) {
+	// 		return errors.WithMessage(err, "host keys")
+	// 	}
+	// }
 	if _, err := os.Stat(c.GitPath); os.IsNotExist(err) {
 		return errors.WithMessage(err, "git path")
 	}
