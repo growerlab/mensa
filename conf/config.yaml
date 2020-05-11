@@ -2,13 +2,14 @@ default: &base
   user: git
   listen: 0.0.0.0:22
   http_listen: 0.0.0.0:8080
-#  host_keys:
-#    - /etc/ssh/ssh_host_ed25519_key
-#    - /etc/ssh/ssh_host_ecdsa_key
+  #  host_keys:
+  #    - /etc/ssh/ssh_host_ed25519_key
+  #    - /etc/ssh/ssh_host_ecdsa_key
   deadline: 3600
   idle_timeout: 180
   git_path: /usr/bin/git
   git_repo_dir: /data/repositories # repos base dir
+  db_url: postgresql://growerlab:growerlab@127.0.0.1:5432/growerlab?sslmode=disable
 
 production:
   <<: *base

@@ -25,6 +25,7 @@ type Config struct {
 	Deadline    int    `yaml:"deadline"`
 	IdleTimeout int    `yaml:"idle_timeout"`
 	GitRepoDir  string `yaml:"git_repo_dir"`
+	DBUrl       string `yaml:"db_url"`
 }
 
 func (c *Config) validate() error {

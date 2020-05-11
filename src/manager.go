@@ -1,6 +1,7 @@
 package src
 
 import (
+	"runtime/debug"
 	"sync"
 
 	"github.com/growerlab/mensa/src/common"
@@ -45,6 +46,11 @@ func (m *Manager) Run() {
 		wg.Add(1)
 		go func(srv Server) {
 			defer wg.Done()
+			defer func() {
+				if e := recover(); e != nil {
+					debug.PrintStack()
+				}
+			}()
 			err := srv.ListenAndServe(m.ServerHandler)
 			if err != nil {
 				panic(err)

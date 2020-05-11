@@ -16,8 +16,8 @@ type ProtType string
 
 const (
 	ProtTypeHTTP ProtType = "http"
-	ProtTypeSSH           = "ssh"
-	ProtTypeGIT           = "git"
+	ProtTypeSSH  ProtType = "ssh"
+	ProtTypeGIT  ProtType = "git"
 )
 
 // 操作者

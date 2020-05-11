@@ -20,10 +20,16 @@ const (
 	DefaultDeadline    = 3600 // git 的默认执行时间，最长1小时
 )
 
+const (
+	GitReceivePack   = "git-receive-pack"
+	GitUploadPack    = "git-upload-pack"
+	GitUploadArchive = "git-upload-archive"
+)
+
 var AllowedCommandMap = map[string]string{
-	"git-receive-pack":   "receive-pack",
-	"git-upload-pack":    "upload-pack",
-	"git-upload-archive": "upload-archive",
+	GitReceivePack:   "receive-pack",
+	GitUploadPack:    "upload-pack",
+	GitUploadArchive: "upload-archive",
 }
 
 func NewGitSSHServer(cfg *conf.Config) *GitSSHServer {

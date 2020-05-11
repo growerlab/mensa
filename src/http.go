@@ -4,7 +4,6 @@ import (
 	"compress/gzip"
 	"context"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"os"
@@ -39,17 +38,17 @@ func NewGitHttpServer(cfg *conf.Config) *GitHttpServer {
 	}
 
 	server.services = map[string]service{
-		"(.*?)/git-upload-pack$":                       service{"POST", server.serviceRpc, "upload-pack"},
-		"(.*?)/git-receive-pack$":                      service{"POST", server.serviceRpc, "receive-pack"},
-		"(.*?)/info/refs$":                             service{"GET", server.getInfoRefs, ""},
-		"(.*?)/HEAD$":                                  service{"GET", server.getTextFile, ""},
-		"(.*?)/objects/info/alternates$":               service{"GET", server.getTextFile, ""},
-		"(.*?)/objects/info/http-alternates$":          service{"GET", server.getTextFile, ""},
-		"(.*?)/objects/info/packs$":                    service{"GET", server.getInfoPacks, ""},
-		"(.*?)/objects/info/[^/]*$":                    service{"GET", server.getTextFile, ""},
-		"(.*?)/objects/[0-9a-f]{2}/[0-9a-f]{38}$":      service{"GET", server.getLooseObject, ""},
-		"(.*?)/objects/pack/pack-[0-9a-f]{40}\\.pack$": service{"GET", server.getPackFile, ""},
-		"(.*?)/objects/pack/pack-[0-9a-f]{40}\\.idx$":  service{"GET", server.getIdxFile, ""},
+		"(.*?)/git-upload-pack$":                       {"POST", server.serviceRpc, "upload-pack"},
+		"(.*?)/git-receive-pack$":                      {"POST", server.serviceRpc, "receive-pack"},
+		"(.*?)/info/refs$":                             {"GET", server.getInfoRefs, ""},
+		"(.*?)/HEAD$":                                  {"GET", server.getTextFile, ""},
+		"(.*?)/objects/info/alternates$":               {"GET", server.getTextFile, ""},
+		"(.*?)/objects/info/http-alternates$":          {"GET", server.getTextFile, ""},
+		"(.*?)/objects/info/packs$":                    {"GET", server.getInfoPacks, ""},
+		"(.*?)/objects/info/[^/]*$":                    {"GET", server.getTextFile, ""},
+		"(.*?)/objects/[0-9a-f]{2}/[0-9a-f]{38}$":      {"GET", server.getLooseObject, ""},
+		"(.*?)/objects/pack/pack-[0-9a-f]{40}\\.pack$": {"GET", server.getPackFile, ""},
+		"(.*?)/objects/pack/pack-[0-9a-f]{40}\\.idx$":  {"GET", server.getIdxFile, ""},
 	}
 	return server
 }
@@ -143,7 +142,7 @@ func (g *GitHttpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for match, service := range g.services {
 		re, err := regexp.Compile(match)
 		if err != nil {
-			log.Print(err, '\n')
+			log.Println(err)
 		}
 
 		if m := re.FindStringSubmatch(r.URL.Path); m != nil {
@@ -208,7 +207,7 @@ func (g *GitHttpServer) serviceRpc(ctx *requestContext) error {
 	w.Header().Set("Content-Type", fmt.Sprintf("application/x-git-%s-result", rpc))
 	w.WriteHeader(http.StatusOK)
 
-	var body io.ReadCloser = r.Body
+	var body = r.Body
 	defer body.Close()
 
 	if r.Header.Get("Content-Encoding") == "gzip" {

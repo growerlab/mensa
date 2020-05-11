@@ -14,5 +14,15 @@ func Authenticate(ctx *common.Context) (httpCode int, err error) {
 		return
 	}
 
+	if err = checkPermission(ctx); err != nil {
+		return
+	}
+
 	return
+}
+
+// 检查是否有读取、推送权限
+func checkPermission(ctx *common.Context) error {
+	// ctx.RawCommands
+	return nil
 }
