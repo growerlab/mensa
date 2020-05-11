@@ -5,8 +5,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/growerlab/mensa/src/common"
 	"github.com/growerlab/mensa/src/conf"
+	"github.com/growerlab/mensa/src/db"
 	"github.com/growerlab/mensa/src/middleware"
 )
 
@@ -21,7 +21,7 @@ func initialize() {
 
 	// 初始化依赖顺序的「初始化」
 	startInit(conf.LoadConfig)
-	startInit(common.InitDatabase)
+	startInit(db.InitDatabase)
 }
 
 func startInit(fn func() error) {
