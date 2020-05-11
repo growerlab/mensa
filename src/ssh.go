@@ -24,12 +24,16 @@ const (
 	GitReceivePack   = "git-receive-pack"
 	GitUploadPack    = "git-upload-pack"
 	GitUploadArchive = "git-upload-archive"
+
+	ReceivePack   = "receive-pack"
+	UploadPack    = "upload-pack"
+	UploadArchive = "upload-archive"
 )
 
 var AllowedCommandMap = map[string]string{
-	GitReceivePack:   "receive-pack",
-	GitUploadPack:    "upload-pack",
-	GitUploadArchive: "upload-archive",
+	GitReceivePack:   ReceivePack,
+	GitUploadPack:    UploadPack,
+	GitUploadArchive: UploadArchive,
 }
 
 func NewGitSSHServer(cfg *conf.Config) *GitSSHServer {

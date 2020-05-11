@@ -3,15 +3,17 @@ package src
 import "github.com/growerlab/mensa/src/common"
 
 const (
-	_ = iota
-	ActionTypePush
-	ActionTypePull
+	ActionTypePush = "push"
+	ActionTypePull = "pull"
 )
 
-var CommandActionMap = map[string]int{
+var CommandActionMap = map[string]string{
 	GitReceivePack:   ActionTypePush,
 	GitUploadPack:    ActionTypePull,
 	GitUploadArchive: ActionTypePull,
+
+	ReceivePack: ActionTypePush,
+	UploadPack:  ActionTypePull,
 }
 
 // 入口

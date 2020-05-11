@@ -130,6 +130,7 @@ func (g *GitHttpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, err := common.BuildContextFromHTTP(r.URL)
 	if err != nil {
 		g.httpRender(w, http.StatusBadRequest, "bad request")
+		return
 	}
 
 	result := g.handler(ctx)
@@ -142,8 +143,10 @@ func (g *GitHttpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for match, service := range g.services {
 		re, err := regexp.Compile(match)
 		if err != nil {
-			log.Println(err)
+			log.Println(errors.Errorf("does not match service: %s", match))
+			return
 		}
+		ctx.ActionType, _ = CommandActionMap[service.Rpc]
 
 		if m := re.FindStringSubmatch(r.URL.Path); m != nil {
 			log.Println("[http] git handler commands: ", m)
@@ -325,7 +328,7 @@ func (g *GitHttpServer) getConfigSetting(serviceName string, dir string) bool {
 		return false
 	}
 
-	if serviceName == "uploadpack" {
+	if serviceName == "upload-pack" {
 		return setting != "false"
 	}
 	return setting == "true"

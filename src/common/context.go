@@ -30,6 +30,8 @@ type Operator struct {
 
 // 相关操作的上下文
 type Context struct {
+	// push、pull
+	ActionType string
 	// 推送类型（http[s]、ssh、git）
 	Type ProtType
 	// ssh: 原始commands
