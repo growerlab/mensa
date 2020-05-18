@@ -1,13 +1,13 @@
-package src
+package app
 
 import (
 	"io"
 	"log"
 	"os"
 
-	"github.com/growerlab/mensa/src/conf"
-	"github.com/growerlab/mensa/src/db"
-	"github.com/growerlab/mensa/src/middleware"
+	"github.com/growerlab/mensa/app/conf"
+	"github.com/growerlab/mensa/app/db"
+	"github.com/growerlab/mensa/app/middleware"
 )
 
 // var mids *middleware.Middleware
@@ -22,6 +22,7 @@ func initialize() {
 	// 初始化依赖顺序的「初始化」
 	startInit(conf.LoadConfig)
 	startInit(db.InitDatabase)
+	startInit(db.InitMemDB)
 }
 
 func startInit(fn func() error) {

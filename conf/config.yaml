@@ -10,6 +10,13 @@ default: &base
   git_path: /usr/bin/git
   git_repo_dir: /data/repositories # repos base dir
   db_url: postgresql://growerlab:growerlab@127.0.0.1:5432/growerlab?sslmode=disable
+  redis:
+    host: 127.0.0.1
+    port: 6379
+    max_idle: 5
+    max_active: 512
+    idle_timeout: 120
+    namespace: "master:mensa"
 
 production:
   <<: *base

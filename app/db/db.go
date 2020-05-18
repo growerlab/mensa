@@ -6,7 +6,7 @@ import (
 	"runtime/debug"
 
 	sq "github.com/Masterminds/squirrel"
-	"github.com/growerlab/mensa/src/conf"
+	"github.com/growerlab/mensa/app/conf"
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 )

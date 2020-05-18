@@ -2,12 +2,13 @@ package common
 
 import (
 	"log"
+	"net/http"
 	"net/url"
 	"path/filepath"
 	"strings"
 
 	"github.com/gliderlabs/ssh"
-	"github.com/growerlab/mensa/src/conf"
+	"github.com/growerlab/mensa/app/conf"
 	"github.com/pkg/errors"
 )
 
@@ -20,12 +21,21 @@ const (
 	ProtTypeGIT  ProtType = "git"
 )
 
+const (
+	ActionTypeRead  = "READ"
+	ActionTypeWrite = "WRITE"
+)
+
 // 操作者
 type Operator struct {
 	// 当是http[s]协议时，这里可能有user、pwd(密码可能是token)
 	HttpUser *url.Userinfo
 	// 当是ssh协议时，可能有ssh的公钥字段
 	SSHPublicKey ssh.PublicKey
+}
+
+func (o *Operator) IsHttp() bool {
+	return o.HttpUser != nil
 }
 
 // 相关操作的上下文
@@ -45,19 +55,33 @@ type Context struct {
 	// 仓库地址中的 仓库名
 	RepoName string
 	// 仓库的具体地址
-	RepoPath string
+	RepoDir string
 	// 推送人 / 拉取人
 	// 	当用户提交、拉取仓库时，应该要知道这个操作者是谁
 	// 	如果仓库是公共的，那么可以忽略这个操作者字段
 	// 	如果仓库是私有的，那么这个字段必须有值
 	//
 	Operator *Operator
+
+	// http: 请求
+	Resp http.ResponseWriter
+	Req  *http.Request
 }
 
-func BuildContextFromHTTP(uri *url.URL) (*Context, error) {
+func (c *Context) IsRead() bool {
+	return c.ActionType == ActionTypeRead
+}
+
+func BuildContextFromHTTP(w http.ResponseWriter, r *http.Request) (*Context, error) {
+	uri := r.URL
 	repoOwner, repoName, repoPath, err := buildRepoInfoByPath(uri.Path)
 	if err != nil {
 		return nil, err
+	}
+
+	actionType := ActionTypeRead
+	if uri.Query().Get("service") == "git-upload-pack" {
+		actionType = ActionTypeWrite
 	}
 
 	var operator *Operator = nil
@@ -68,13 +92,16 @@ func BuildContextFromHTTP(uri *url.URL) (*Context, error) {
 	}
 
 	return &Context{
+		ActionType: actionType,
 		Type:       ProtTypeHTTP,
 		RawURL:     uri.String(),
 		RequestURL: uri,
 		RepoOwner:  repoOwner,
 		RepoName:   repoName,
-		RepoPath:   repoPath, // 仓库的具体地址
+		RepoDir:    repoPath, // 仓库的具体地址
 		Operator:   operator,
+		Resp:       w,
+		Req:        r,
 	}, nil
 }
 
@@ -90,12 +117,18 @@ func BuildContextFromSSH(session ssh.Session) (*Context, error) {
 		return nil, err
 	}
 
+	actionType := ActionTypeRead
+	if commands[0] == "git-upload-pack" {
+		actionType = ActionTypeWrite
+	}
+
 	return &Context{
+		ActionType:  actionType,
 		Type:        ProtTypeSSH,
 		RawCommands: commands,
 		RepoOwner:   repoOwner,
 		RepoName:    repoName,
-		RepoPath:    repoPath, // 仓库的地址
+		RepoDir:     repoPath, // 仓库的地址
 		Operator: &Operator{
 			SSHPublicKey: session.PublicKey(),
 		},

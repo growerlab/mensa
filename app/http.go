@@ -1,4 +1,4 @@
-package src
+package app
 
 import (
 	"compress/gzip"
@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/growerlab/mensa/src/common"
-	"github.com/growerlab/mensa/src/conf"
+	"github.com/growerlab/mensa/app/common"
+	"github.com/growerlab/mensa/app/conf"
 	"github.com/pkg/errors"
 )
 
@@ -127,7 +127,7 @@ func (g *GitHttpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[http] %s-[%s] TAKE: %s\n", preLog, end.Format(time.RFC3339), end.Sub(begin))
 	}()
 
-	ctx, err := common.BuildContextFromHTTP(r.URL)
+	ctx, err := common.BuildContextFromHTTP(w, r)
 	if err != nil {
 		g.httpRender(w, http.StatusBadRequest, "bad request")
 		return
@@ -146,7 +146,6 @@ func (g *GitHttpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			log.Println(errors.Errorf("does not match service: %s", match))
 			return
 		}
-		ctx.ActionType, _ = CommandActionMap[service.Rpc]
 
 		if m := re.FindStringSubmatch(r.URL.Path); m != nil {
 			log.Println("[http] git handler commands: ", m)
@@ -157,7 +156,7 @@ func (g *GitHttpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 			rpc := service.Rpc
 			file := strings.Replace(r.URL.Path, m[1]+"/", "", 1)
-			dir := ctx.RepoPath
+			dir := ctx.RepoDir
 
 			err = service.Do(&requestContext{w, r, rpc, dir, file})
 			if err != nil {

@@ -16,16 +16,25 @@ const DefaultENV = "dev"
 var envConfig map[string]*Config
 var config *Config
 
+type Redis struct {
+	Host        string `yaml:"host"`
+	Port        int    `yaml:"port"`
+	Namespace   string `yaml:"namespace"`
+	MaxIdle     int    `yaml:"max_idle"`
+	MaxActive   int    `yaml:"max_active"`
+	IdleTimeout int    `yaml:"idle_timeout"`
+}
+
 type Config struct {
-	User       string `yaml:"user"`
-	Listen     string `yaml:"listen"`
-	HttpListen string `yaml:"http_listen"`
-	// HostKeys    []string `yaml:"host_keys"`
+	User        string `yaml:"user"`
+	Listen      string `yaml:"listen"`
+	HttpListen  string `yaml:"http_listen"`
 	GitPath     string `yaml:"git_path"`
 	Deadline    int    `yaml:"deadline"`
 	IdleTimeout int    `yaml:"idle_timeout"`
 	GitRepoDir  string `yaml:"git_repo_dir"`
 	DBUrl       string `yaml:"db_url"`
+	Redis       *Redis `yaml:"redis"`
 }
 
 func (c *Config) validate() error {

@@ -1,10 +1,10 @@
-package src
+package app
 
 import (
 	"runtime/debug"
 	"sync"
 
-	"github.com/growerlab/mensa/src/common"
+	"github.com/growerlab/mensa/app/common"
 )
 
 type Result struct {

@@ -2,16 +2,17 @@ package main
 
 import (
 	"fmt"
-	"github.com/growerlab/mensa/src"
+
+	"github.com/growerlab/mensa/app"
 )
 
 func main() {
 	fmt.Println("=================================")
-	fmt.Println("BuiltTime: ", src.BUILDTIME)
-	fmt.Println("CommitID: ", src.BUILDCOMMIT)
-	fmt.Println("GoVersion: ", src.GOVERSION)
+	fmt.Println("BuiltTime: ", app.BUILDTIME)
+	fmt.Println("CommitID: ", app.BUILDCOMMIT)
+	fmt.Println("GoVersion: ", app.GOVERSION)
 	fmt.Println("=================================")
-	fmt.Println(src.UA)
+	fmt.Println(app.UA)
 
-	src.Run()
+	app.Run()
 }

@@ -1,4 +1,4 @@
-package src
+package app
 
 import (
 	"context"
@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/gliderlabs/ssh"
-	"github.com/growerlab/mensa/src/common"
-	"github.com/growerlab/mensa/src/conf"
+	"github.com/growerlab/mensa/app/common"
+	"github.com/growerlab/mensa/app/conf"
 	"github.com/pkg/errors"
 )
 
@@ -104,7 +104,7 @@ func (g *GitSSHServer) sessionHandler(session ssh.Session) {
 		log.Printf("[ssh] %v\n", err)
 		return
 	}
-	log.Println("[ssh] git handler commands: ", ctx.RawCommands, ctx.RepoPath)
+	log.Println("[ssh] git handler commands: ", ctx.RawCommands, ctx.RepoDir)
 
 	result := g.handler(ctx)
 	if result != nil {
@@ -122,9 +122,9 @@ func (g *GitSSHServer) sessionHandler(session ssh.Session) {
 	cmdCtx, cancel := context.WithTimeout(context.Background(), time.Duration(g.deadline)*time.Second)
 	defer cancel()
 
-	args := []string{service, ctx.RepoPath}
+	args := []string{service, ctx.RepoDir}
 	cmd := exec.CommandContext(cmdCtx, g.gitBinPath, args...)
-	cmd.Dir = ctx.RepoPath
+	cmd.Dir = ctx.RepoDir
 	cmd.Stdin = session
 	cmd.Stdout = session
 	err = cmd.Run()
