@@ -38,6 +38,22 @@ func (o *Operator) IsHttp() bool {
 	return o.HttpUser != nil
 }
 
+func (o *Operator) IsEmptyUser() bool {
+	if o.IsHttp() {
+		if o.HttpUser.Username() == "" {
+			return true
+		}
+		if _, set := o.HttpUser.Password(); !set {
+			return true
+		}
+	} else {
+		if len(o.SSHPublicKey.Marshal()) == 0 {
+			return true
+		}
+	}
+	return false
+}
+
 // 相关操作的上下文
 type Context struct {
 	// push、pull
@@ -70,6 +86,12 @@ type Context struct {
 
 func (c *Context) IsRead() bool {
 	return c.ActionType == ActionTypeRead
+}
+
+func (c *Context) Desc() string {
+	// who do what
+	// return fmt.Sprintf(c.)
+	return ""
 }
 
 func BuildContextFromHTTP(w http.ResponseWriter, r *http.Request) (*Context, error) {

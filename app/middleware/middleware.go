@@ -7,31 +7,36 @@ import (
 	"github.com/growerlab/mensa/app/common"
 )
 
-type MiddlewareFunc func(*common.Context) (httpCode int, appendText string, err error)
+type HandleFunc func(*common.Context) (httpCode int, appendText string, err error)
 
 type Middleware struct {
-	midFuncs []MiddlewareFunc
+	funcs []HandleFunc
 
 	lastErr        error
 	lastStatusCode int
-	lastAppendText string
+	lastAppendText strings.Builder
 }
 
-func (m *Middleware) Add(fn MiddlewareFunc) {
-	m.midFuncs = append(m.midFuncs, fn)
+func (m *Middleware) Add(fn HandleFunc) {
+	m.funcs = append(m.funcs, fn)
 }
 
 func (m *Middleware) Run(ctx *common.Context) error {
-	for _, fn := range m.midFuncs {
-		m.lastStatusCode, m.lastAppendText, m.lastErr = fn(ctx)
-		if m.lastErr != nil {
+	for _, fn := range m.funcs {
+		statusCode, appendText, err := fn(ctx)
+		if len(appendText) > 0 {
+			m.lastAppendText.WriteString(appendText)
+		}
+		m.lastStatusCode = statusCode
+		if err != nil {
+			m.lastErr = err
 			return m.lastErr
 		}
 	}
 	return nil
 }
 
-func (m *Middleware) Prep(ctx *common.Context) error {
+func (m *Middleware) Enter(ctx *common.Context) error {
 	err := m.Run(ctx)
 	return err
 }
@@ -47,10 +52,10 @@ func (m *Middleware) HttpStatusMessage() string {
 
 	var sb strings.Builder
 	sb.WriteString(http.StatusText(m.lastStatusCode))
-	if len(m.lastAppendText) > 0 {
-		sb.WriteString(" ")
-		sb.WriteString(m.lastAppendText)
+	if m.lastAppendText.Len() > 0 {
+		sb.WriteString(m.lastAppendText.String())
 	}
+	sb.WriteString("\n----- Power by GrowerLab.net -----")
 	return sb.String()
 }
 

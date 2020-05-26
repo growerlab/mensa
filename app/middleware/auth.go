@@ -4,7 +4,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
 
 	"github.com/growerlab/backend/app/common/permission"
 	"github.com/growerlab/mensa/app/common"
@@ -20,11 +19,8 @@ func Authenticate(ctx *common.Context) (httpCode int, appendText string, err err
 
 	if err = checkPermission(ctx); err != nil {
 		httpCode = http.StatusUnauthorized
-		var sb strings.Builder
-		sb.Write([]byte("\n"))
-		sb.WriteString("----- Power by GrowerLab.net -----")
-		appendText = sb.String()
-		log.Printf("unauthorized: %v\n", err)
+		appendText = err.Error()
+		log.Printf("%s, unauthorized: %v\n", ctx.Desc(), err)
 		return
 	}
 	return
@@ -40,7 +36,17 @@ func checkPermission(ctx *common.Context) error {
 		return err
 	}
 	if ctx.IsRead() {
-		return permission.CheckCloneRepository(nil, repoID)
+		var userID *int64
+		if !ctx.Operator.IsEmptyUser() {
+			uid, err := service.GetNamespaceByOperator(ctx.Operator)
+			if err != nil {
+				return err
+			}
+			if uid > 0 {
+				userID = &uid
+			}
+		}
+		return permission.CheckCloneRepository(userID, repoID)
 	} else {
 		userID, err := service.GetNamespaceByOperator(ctx.Operator)
 		if err != nil {
