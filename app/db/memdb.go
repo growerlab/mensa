@@ -9,15 +9,18 @@ import (
 
 	"github.com/go-redis/redis/v7"
 	"github.com/growerlab/backend/app/model/db"
+	dbModel "github.com/growerlab/backend/app/model/db"
 	"github.com/growerlab/mensa/app/conf"
 	"github.com/pkg/errors"
 )
 
-var MemDB *redis.Client
+var MemDB *db.MemDBClient
+var PermissionDB *db.MemDBClient
 
 func InitMemDB() error {
 	var config = conf.GetConfig().Redis
-	MemDB = newPool(config, 0)
+	MemDB = newPool(config, config.Namespace, 0)
+	PermissionDB = newPool(config, config.PermissionNamespace, 0)
 
 	// Test
 	reply, err := MemDB.Ping().Result()
@@ -27,7 +30,7 @@ func InitMemDB() error {
 	return err
 }
 
-func newPool(cfg *conf.Redis, db int) *redis.Client {
+func newPool(cfg *conf.Redis, namespace string, db int) *dbModel.MemDBClient {
 	addr := net.JoinHostPort(cfg.Host, strconv.Itoa(cfg.Port))
 	idleTimeout := time.Duration(cfg.IdleTimeout) * time.Second
 
@@ -38,9 +41,10 @@ func newPool(cfg *conf.Redis, db int) *redis.Client {
 		MinIdleConns: cfg.MaxIdle,
 		IdleTimeout:  idleTimeout,
 	})
-	return client
-}
 
-func BaseKeyBuilder(s ...string) *db.KeyBuilder {
-	return db.NewKeyBuilder(conf.GetConfig().Redis.Namespace).Append(s...)
+	memDB := &dbModel.MemDBClient{
+		client,
+		dbModel.NewKeyBuilder(namespace),
+	}
+	return memDB
 }

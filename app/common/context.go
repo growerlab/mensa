@@ -84,7 +84,7 @@ type Context struct {
 	Req  *http.Request
 }
 
-func (c *Context) IsRead() bool {
+func (c *Context) IsReadAction() bool {
 	return c.ActionType == ActionTypeRead
 }
 

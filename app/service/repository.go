@@ -4,10 +4,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/pkg/errors"
-
+	dbModel "github.com/growerlab/backend/app/model/db"
 	repoModel "github.com/growerlab/backend/app/model/repository"
 	"github.com/growerlab/mensa/app/db"
+	"github.com/pkg/errors"
 )
 
 func RepositoryID(repoOwner, repoName string) (int64, error) {
@@ -16,9 +16,9 @@ func RepositoryID(repoOwner, repoName string) (int64, error) {
 		return 0, err
 	}
 
-	// 仓库的公开状态可能变动，所以这里不缓存
+	// 仓库的公开状态可能变动，所以这里仅缓存仓库id
 	repoIDRaw, err := NewCache().GetOrSet(
-		db.BaseKeyBuilder("repository", "id").String(),
+		dbModel.NewKeyPart().Append("repository", "id").String(),
 		strings.Join([]string{repoOwner, repoName}, ":"),
 		func() (value string, err error) {
 			repo, err := repoModel.GetRepositoryByNsWithPath(db.DB, repoOwnerNS, repoName)

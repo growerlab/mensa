@@ -17,12 +17,13 @@ var envConfig map[string]*Config
 var config *Config
 
 type Redis struct {
-	Host        string `yaml:"host"`
-	Port        int    `yaml:"port"`
-	Namespace   string `yaml:"namespace"`
-	MaxIdle     int    `yaml:"max_idle"`
-	MaxActive   int    `yaml:"max_active"`
-	IdleTimeout int    `yaml:"idle_timeout"`
+	Host                string `yaml:"host"`
+	Port                int    `yaml:"port"`
+	MaxIdle             int    `yaml:"max_idle"`
+	MaxActive           int    `yaml:"max_active"`
+	IdleTimeout         int    `yaml:"idle_timeout"`
+	Namespace           string `yaml:"namespace"`
+	PermissionNamespace string `yaml:"permission_namespace,omitempty"`
 }
 
 type Config struct {

@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/growerlab/mensa/app/common"
 	"github.com/growerlab/mensa/app/conf"
 	"github.com/growerlab/mensa/app/db"
 	"github.com/growerlab/mensa/app/middleware"
@@ -23,6 +24,7 @@ func initialize() {
 	startInit(conf.LoadConfig)
 	startInit(db.InitDatabase)
 	startInit(db.InitMemDB)
+	startInit(common.InitPermission)
 }
 
 func startInit(fn func() error) {

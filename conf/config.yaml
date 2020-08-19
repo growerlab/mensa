@@ -14,6 +14,7 @@ default: &base
     max_active: 512
     idle_timeout: 120
     namespace: "master:mensa"
+    permission_namespace: "master"
 
 production:
   <<: *base

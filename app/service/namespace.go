@@ -3,6 +3,7 @@ package service
 import (
 	"strconv"
 
+	dbModel "github.com/growerlab/backend/app/model/db"
 	userModel "github.com/growerlab/backend/app/model/user"
 	"github.com/growerlab/backend/app/service/user"
 	"github.com/growerlab/mensa/app/common"
@@ -30,7 +31,7 @@ func GetNamespaceByOperator(operator *common.Operator) (int64, error) {
 
 func GetUserNamespaceByUsername(username string) (int64, error) {
 	userNamespaceID, err := NewCache().GetOrSet(
-		db.BaseKeyBuilder("user", "namespace").String(),
+		dbModel.NewKeyPart().Append("user", "namespace").String(),
 		username,
 		func() (string, error) {
 			u, err := userModel.GetUserByUsername(db.DB, username)

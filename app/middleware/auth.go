@@ -10,6 +10,7 @@ import (
 	"github.com/growerlab/mensa/app/service"
 )
 
+// Authenticate 鉴权
 func Authenticate(ctx *common.Context) (httpCode int, appendText string, err error) {
 	httpCode = http.StatusOK
 	noAuth := os.Getenv("NOAUTH")
@@ -35,23 +36,21 @@ func checkPermission(ctx *common.Context) error {
 	if err != nil {
 		return err
 	}
-	if ctx.IsRead() {
-		var userID *int64
+	if ctx.IsReadAction() {
+		var nsID int64
+		var err error
 		if !ctx.Operator.IsEmptyUser() {
-			uid, err := service.GetNamespaceByOperator(ctx.Operator)
+			nsID, err = service.GetNamespaceByOperator(ctx.Operator)
 			if err != nil {
 				return err
 			}
-			if uid > 0 {
-				userID = &uid
-			}
 		}
-		return permission.CheckCloneRepository(userID, repoID)
+		return permission.CheckCloneRepository(&nsID, repoID)
 	} else {
-		userID, err := service.GetNamespaceByOperator(ctx.Operator)
+		nsID, err := service.GetNamespaceByOperator(ctx.Operator)
 		if err != nil {
 			return err
 		}
-		return permission.CheckPushRepository(userID, repoID)
+		return permission.CheckPushRepository(nsID, repoID)
 	}
 }
