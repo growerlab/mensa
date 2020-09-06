@@ -30,9 +30,12 @@ func GetNamespaceByOperator(operator *common.Operator) (int64, error) {
 }
 
 func GetUserNamespaceByUsername(username string) (int64, error) {
+	key := dbModel.MemDB.KeyMaker().Append("user", "namespace").String()
+	field := username
+
 	userNamespaceID, err := NewCache().GetOrSet(
-		dbModel.NewKeyPart().Append("user", "namespace").String(),
-		username,
+		key,
+		field,
 		func() (string, error) {
 			u, err := userModel.GetUserByUsername(db.DB, username)
 			if err != nil {

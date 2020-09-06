@@ -2,7 +2,6 @@ package service
 
 import (
 	"strconv"
-	"strings"
 
 	dbModel "github.com/growerlab/backend/app/model/db"
 	repoModel "github.com/growerlab/backend/app/model/repository"
@@ -16,10 +15,13 @@ func RepositoryID(repoOwner, repoName string) (int64, error) {
 		return 0, err
 	}
 
+	key := dbModel.MemDB.KeyMaker().Append("repository", "id", "namespace").String()
+	field := dbModel.MemDB.KeyMakerNoNS().Append(repoOwner, repoName).String()
+
 	// 仓库的公开状态可能变动，所以这里仅缓存仓库id
 	repoIDRaw, err := NewCache().GetOrSet(
-		dbModel.NewKeyPart().Append("repository", "id").String(),
-		strings.Join([]string{repoOwner, repoName}, ":"),
+		key,
+		field,
 		func() (value string, err error) {
 			repo, err := repoModel.GetRepositoryByNsWithPath(db.DB, repoOwnerNS, repoName)
 			if err != nil {
@@ -31,10 +33,9 @@ func RepositoryID(repoOwner, repoName string) (int64, error) {
 			return strconv.FormatInt(repo.ID, 10), nil
 		})
 	if err != nil {
-		return 0, errors.WithStack(err)
+		return 0, err
 	}
 
 	repoID, err := strconv.ParseInt(repoIDRaw, 10, 64)
-
 	return repoID, errors.WithStack(err)
 }
