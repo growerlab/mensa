@@ -3,7 +3,6 @@ package service
 import (
 	"strconv"
 
-	dbModel "github.com/growerlab/backend/app/model/db"
 	repoModel "github.com/growerlab/backend/app/model/repository"
 	"github.com/growerlab/mensa/app/db"
 	"github.com/pkg/errors"
@@ -15,8 +14,8 @@ func RepositoryID(repoOwner, repoName string) (int64, error) {
 		return 0, err
 	}
 
-	key := dbModel.MemDB.KeyMaker().Append("repository", "id", "namespace").String()
-	field := dbModel.MemDB.KeyMakerNoNS().Append(repoOwner, repoName).String()
+	key := db.MemDB.KeyMaker().Append("repository", "id", "namespace").String()
+	field := db.MemDB.KeyMakerNoNS().Append(repoOwner, repoName).String()
 
 	// 仓库的公开状态可能变动，所以这里仅缓存仓库id
 	repoIDRaw, err := NewCache().GetOrSet(

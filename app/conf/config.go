@@ -27,6 +27,7 @@ type Redis struct {
 }
 
 type Config struct {
+	Debug       bool   `yaml:"-"`
 	User        string `yaml:"user"`
 	Listen      string `yaml:"listen"`
 	HttpListen  string `yaml:"http_listen"`
@@ -73,12 +74,18 @@ func LoadConfig() error {
 	if env == "" {
 		env = DefaultENV
 	}
+
 	config, ok = envConfig[env]
 	if !ok {
 		return errors.New("not found config by env: " + env)
 	}
+
+	if env == DefaultENV {
+		config.Debug = true
+	}
+
 	// for dev
-	if !strings.HasPrefix(config.GitRepoDir, "/") && env == "dev" {
+	if !strings.HasPrefix(config.GitRepoDir, "/") && env == DefaultENV {
 		config.GitRepoDir = filepath.Join(os.Getenv("GOPATH"), "src", "github.com/growerlab/mensa", config.GitRepoDir)
 	}
 	return config.validate()

@@ -3,48 +3,36 @@
 package db
 
 import (
-	"net"
-	"strconv"
-	"time"
-
-	"github.com/go-redis/redis/v7"
 	"github.com/growerlab/backend/app/model/db"
-	dbModel "github.com/growerlab/backend/app/model/db"
-	"github.com/growerlab/mensa/app/conf"
-	"github.com/pkg/errors"
+	"github.com/growerlab/backend/app/utils/conf"
+	selfConf "github.com/growerlab/mensa/app/conf"
 )
 
 var MemDB *db.MemDBClient
 var PermissionDB *db.MemDBClient
 
-func InitMemDB() error {
-	var config = conf.GetConfig().Redis
-	MemDB = newPool(config, config.Namespace, 0)
-	PermissionDB = newPool(config, config.PermissionNamespace, 0)
+func InitMemDB() (err error) {
+	c := selfConf.GetConfig().Redis
 
-	// Test
-	reply, err := MemDB.Ping().Result()
-	if err != nil || reply != "PONG" {
-		return errors.New("memdb not ready")
+	redisConf := &conf.Redis{
+		Host:        c.Host,
+		Port:        c.Port,
+		Namespace:   c.Namespace,
+		MaxIdle:     c.MaxIdle,
+		MaxActive:   c.MaxActive,
+		IdleTimeout: c.IdleTimeout,
 	}
-	return err
-}
 
-func newPool(cfg *conf.Redis, namespace string, db int) *dbModel.MemDBClient {
-	addr := net.JoinHostPort(cfg.Host, strconv.Itoa(cfg.Port))
-	idleTimeout := time.Duration(cfg.IdleTimeout) * time.Second
-
-	client := redis.NewClient(&redis.Options{
-		Addr:         addr,
-		DB:           db,
-		PoolSize:     cfg.MaxActive,
-		MinIdleConns: cfg.MaxIdle,
-		IdleTimeout:  idleTimeout,
-	})
-
-	memDB := &dbModel.MemDBClient{
-		client,
-		dbModel.NewKeyBuilder(namespace),
+	MemDB, err = db.DoInitMemDB(redisConf, 0)
+	if err != nil {
+		return err
 	}
-	return memDB
+
+	redisConf.Namespace = c.PermissionNamespace
+
+	PermissionDB, err = db.DoInitMemDB(redisConf, 0)
+	if err != nil {
+		return err
+	}
+	return nil
 }
