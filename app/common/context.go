@@ -21,10 +21,16 @@ const (
 	ProtTypeGIT  ProtType = "git"
 )
 
+type Action string
+
 const (
-	ActionTypeRead  = "READ"
-	ActionTypeWrite = "WRITE"
+	ActionTypeRead  Action = "READ"
+	ActionTypeWrite Action = "WRITE"
 )
+
+func (a Action) IsRead() bool {
+	return a == ActionTypeRead
+}
 
 // 操作者
 type Operator struct {
@@ -57,7 +63,7 @@ func (o *Operator) IsEmptyUser() bool {
 // 相关操作的上下文
 type Context struct {
 	// push、pull
-	ActionType string
+	ActionType Action
 	// 推送类型（http[s]、ssh、git）
 	Type ProtType
 	// ssh: 原始commands
@@ -85,7 +91,7 @@ type Context struct {
 }
 
 func (c *Context) IsReadAction() bool {
-	return c.ActionType == ActionTypeRead
+	return c.ActionType.IsRead()
 }
 
 func (c *Context) Desc() string {
@@ -96,7 +102,7 @@ func (c *Context) Desc() string {
 
 func BuildContextFromHTTP(w http.ResponseWriter, r *http.Request) (*Context, error) {
 	uri := r.URL
-	repoOwner, repoName, repoPath, err := buildRepoInfoByPath(uri.Path)
+	repoOwner, repoName, repoPath, err := BuildRepoInfoByPath(uri.Path)
 	if err != nil {
 		return nil, err
 	}
@@ -106,12 +112,13 @@ func BuildContextFromHTTP(w http.ResponseWriter, r *http.Request) (*Context, err
 		actionType = ActionTypeWrite
 	}
 
-	var operator *Operator = nil
-	if uri.User != nil {
-		operator = &Operator{
-			HttpUser: uri.User,
-		}
-	}
+	// 这个阶段是无法获取用户的http账号密码信息的
+	// var operator *Operator = nil
+	// if userInfo != nil {
+	// 	operator = &Operator{
+	// 		HttpUser: userInfo,
+	// 	}
+	// }
 
 	return &Context{
 		ActionType: actionType,
@@ -121,7 +128,7 @@ func BuildContextFromHTTP(w http.ResponseWriter, r *http.Request) (*Context, err
 		RepoOwner:  repoOwner,
 		RepoName:   repoName,
 		RepoDir:    repoPath, // 仓库的具体地址
-		Operator:   operator,
+		Operator:   nil,
 		Resp:       w,
 		Req:        r,
 	}, nil
@@ -134,7 +141,7 @@ func BuildContextFromSSH(session ssh.Session) (*Context, error) {
 	}
 
 	gitPath := commands[1]
-	repoOwner, repoName, repoPath, err := buildRepoInfoByPath(gitPath)
+	repoOwner, repoName, repoPath, err := BuildRepoInfoByPath(gitPath)
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +164,7 @@ func BuildContextFromSSH(session ssh.Session) (*Context, error) {
 	}, nil
 }
 
-func buildRepoInfoByPath(path string) (repoOwner, repoName, repoPath string, err error) {
+func BuildRepoInfoByPath(path string) (repoOwner, repoName, repoPath string, err error) {
 	defer func() {
 		if e := recover(); e != nil {
 			log.Println("build repo info was err: ", e)

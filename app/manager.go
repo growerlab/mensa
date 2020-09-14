@@ -13,12 +13,12 @@ type Result struct {
 	Err         error
 }
 
-type ServerHandler func(ctx *common.Context) *Result
+type MiddlewareHandler func(ctx *common.Context) *Result
 
 type Server interface {
 	// 启动并监听服务
 	// 	当有新的链接时，将调用cb方法
-	ListenAndServe(cb ServerHandler) error
+	ListenAndServe(MiddlewareHandler) error
 	// 停止服务
 	Shutdown() error
 }

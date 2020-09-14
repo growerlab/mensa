@@ -59,7 +59,7 @@ func NewGitSSHServer(cfg *conf.Config) *GitSSHServer {
 }
 
 type GitSSHServer struct {
-	handler ServerHandler
+	handler MiddlewareHandler
 
 	srv         *ssh.Server
 	gitBinPath  string   // bin git
@@ -80,7 +80,7 @@ func (g *GitSSHServer) Shutdown() error {
 }
 
 // Start server
-func (g *GitSSHServer) ListenAndServe(handler ServerHandler) error {
+func (g *GitSSHServer) ListenAndServe(handler MiddlewareHandler) error {
 	log.Printf("[ssh] git listen and serve: %v\n", g.listen)
 	g.handler = handler
 

@@ -8,6 +8,11 @@ import (
 	"github.com/growerlab/backend/app/common/permission"
 	"github.com/growerlab/mensa/app/common"
 	"github.com/growerlab/mensa/app/service"
+	"github.com/pkg/errors"
+)
+
+var (
+	ErrUnauthorized = errors.New("Unauthorized")
 )
 
 // Authenticate 鉴权
@@ -32,25 +37,42 @@ func Authenticate(ctx *common.Context) (httpCode int, appendText string, err err
 // 	私有项目：项目成员可读/写
 //
 func checkPermission(ctx *common.Context) error {
-	repoID, err := service.RepositoryID(ctx.RepoOwner, ctx.RepoName)
+	repo, err := service.GetRepository(ctx.RepoOwner, ctx.RepoName)
 	if err != nil {
 		return err
 	}
-	if ctx.IsReadAction() {
-		var nsID int64
-		var err error
-		if !ctx.Operator.IsEmptyUser() {
-			nsID, err = service.GetNamespaceByOperator(ctx.Operator)
-			if err != nil {
-				return err
+
+	if repo.IsPublic() {
+		if ctx.IsReadAction() {
+			return permission.CheckCloneRepository(nil, repo.ID)
+		} else {
+			var nsID int64
+			var err error
+			if ctx.Operator == nil {
+				return errors.WithStack(ErrUnauthorized)
 			}
+			if !ctx.Operator.IsEmptyUser() {
+				nsID, err = service.GetNamespaceByOperator(ctx.Operator)
+				if err != nil {
+					return err
+				}
+			}
+			return permission.CheckPushRepository(nsID, repo.ID)
 		}
-		return permission.CheckCloneRepository(&nsID, repoID)
 	} else {
+		if ctx.Operator == nil {
+			return errors.WithStack(ErrUnauthorized)
+		}
+
 		nsID, err := service.GetNamespaceByOperator(ctx.Operator)
 		if err != nil {
 			return err
 		}
-		return permission.CheckPushRepository(nsID, repoID)
+
+		if ctx.IsReadAction() {
+			return permission.CheckCloneRepository(&nsID, repo.ID)
+		} else {
+			return permission.CheckPushRepository(nsID, repo.ID)
+		}
 	}
 }

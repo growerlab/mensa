@@ -19,6 +19,11 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	RpcUploadPack  = "upload-pack"
+	RpcReceivePack = "receive-pack"
+)
+
 func NewGitHttpServer(cfg *conf.Config) *GitHttpServer {
 	deadline := DefaultDeadline
 	idleTimeout := DefaultIdleTimeout
@@ -38,17 +43,17 @@ func NewGitHttpServer(cfg *conf.Config) *GitHttpServer {
 	}
 
 	server.services = map[string]service{
-		"(.*?)/git-upload-pack$":                       {"POST", server.serviceRpc, "upload-pack"},
-		"(.*?)/git-receive-pack$":                      {"POST", server.serviceRpc, "receive-pack"},
-		"(.*?)/info/refs$":                             {"GET", server.getInfoRefs, ""},
-		"(.*?)/HEAD$":                                  {"GET", server.getTextFile, ""},
-		"(.*?)/objects/info/alternates$":               {"GET", server.getTextFile, ""},
-		"(.*?)/objects/info/http-alternates$":          {"GET", server.getTextFile, ""},
-		"(.*?)/objects/info/packs$":                    {"GET", server.getInfoPacks, ""},
-		"(.*?)/objects/info/[^/]*$":                    {"GET", server.getTextFile, ""},
-		"(.*?)/objects/[0-9a-f]{2}/[0-9a-f]{38}$":      {"GET", server.getLooseObject, ""},
-		"(.*?)/objects/pack/pack-[0-9a-f]{40}\\.pack$": {"GET", server.getPackFile, ""},
-		"(.*?)/objects/pack/pack-[0-9a-f]{40}\\.idx$":  {"GET", server.getIdxFile, ""},
+		"(.*?)/git-upload-pack$":                       {"POST", RpcUploadPack, server.serviceRpc},
+		"(.*?)/git-receive-pack$":                      {"POST", RpcReceivePack, server.serviceRpc},
+		"(.*?)/info/refs$":                             {"GET", "", server.getInfoRefs},
+		"(.*?)/HEAD$":                                  {"GET", "", server.getTextFile},
+		"(.*?)/objects/info/alternates$":               {"GET", "", server.getTextFile},
+		"(.*?)/objects/info/http-alternates$":          {"GET", "", server.getTextFile},
+		"(.*?)/objects/info/packs$":                    {"GET", "", server.getInfoPacks},
+		"(.*?)/objects/info/[^/]*$":                    {"GET", "", server.getTextFile},
+		"(.*?)/objects/[0-9a-f]{2}/[0-9a-f]{38}$":      {"GET", "", server.getLooseObject},
+		"(.*?)/objects/pack/pack-[0-9a-f]{40}\\.pack$": {"GET", "", server.getPackFile},
+		"(.*?)/objects/pack/pack-[0-9a-f]{40}\\.idx$":  {"GET", "", server.getIdxFile},
 	}
 	return server
 }
@@ -63,8 +68,8 @@ type requestContext struct {
 
 type service struct {
 	Method string
-	Do     func(*requestContext) error
 	Rpc    string
+	Do     func(*requestContext) error
 }
 
 type GitHttpServer struct {
@@ -81,12 +86,12 @@ type GitHttpServer struct {
 	// services
 	services map[string]service
 	// 回调
-	handler ServerHandler
+	middlewareHandler MiddlewareHandler
 }
 
-func (g *GitHttpServer) ListenAndServe(handler ServerHandler) error {
+func (g *GitHttpServer) ListenAndServe(handler MiddlewareHandler) error {
 	log.Printf("[http] git listen and serve: %v\n", g.listen)
-	g.handler = handler
+	g.middlewareHandler = handler
 
 	if err := g.validate(); err != nil {
 		return err
@@ -121,7 +126,7 @@ func (g *GitHttpServer) Shutdown() error {
 
 func (g *GitHttpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	begin := time.Now()
-	preLog := fmt.Sprintf("IP: %s URL: %s [%s]", r.RemoteAddr, r.URL.String(), begin.Format(time.RFC3339))
+	preLog := fmt.Sprintf("METHOD: %s IP: %s URL: %s [%s]", r.Method, r.RemoteAddr, r.URL.String(), begin.Format(time.RFC3339))
 	defer func() {
 		end := time.Now()
 		log.Printf("[http] %s-[%s] TAKE: %s\n", preLog, end.Format(time.RFC3339), end.Sub(begin))
@@ -133,9 +138,10 @@ func (g *GitHttpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result := g.handler(ctx)
+	result := g.middlewareHandler(ctx)
 	if result != nil {
-		g.httpRender(w, result.HttpCode, result.HttpMessage)
+		log.Printf("[http] middleware err: %+v \nresult:%d %s\n", result.Err, result.HttpCode, result.HttpMessage)
+		g.httpRender(w, result.HttpCode, "")
 		return
 	}
 
@@ -154,13 +160,18 @@ func (g *GitHttpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			rpc := service.Rpc
 			file := strings.Replace(r.URL.Path, m[1]+"/", "", 1)
-			dir := ctx.RepoDir
+			req := &requestContext{
+				w:    w,
+				r:    r,
+				Rpc:  service.Rpc,
+				Dir:  ctx.RepoDir,
+				File: file,
+			}
 
-			err = service.Do(&requestContext{w, r, rpc, dir, file})
+			err = service.Do(req)
 			if err != nil {
-				log.Printf("[http] service.Do was err:%+v\n", err)
+				log.Printf("[http] service.Do was err: %+v\n", err)
 			}
 			return
 		}
@@ -238,6 +249,7 @@ func (g *GitHttpServer) serviceRpc(ctx *requestContext) error {
 func (g *GitHttpServer) getInfoRefs(ctx *requestContext) error {
 	w, r, dir := ctx.w, ctx.r, ctx.Dir
 	serviceName := g.getServiceType(r)
+
 	access := g.hasAccess(r, dir, serviceName, false)
 	if access {
 		args := []string{serviceName, "--stateless-rpc", "--advertise-refs", "."}
@@ -327,7 +339,7 @@ func (g *GitHttpServer) getConfigSetting(serviceName string, dir string) bool {
 		return false
 	}
 
-	if serviceName == "upload-pack" {
+	if serviceName == "uploadpack" {
 		return setting != "false"
 	}
 	return setting == "true"

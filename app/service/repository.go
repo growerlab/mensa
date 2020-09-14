@@ -8,10 +8,10 @@ import (
 	"github.com/pkg/errors"
 )
 
-func RepositoryID(repoOwner, repoName string) (int64, error) {
+func GetRepository(repoOwner, repoName string) (*repoModel.Repository, error) {
 	repoOwnerNS, err := GetUserNamespaceByUsername(repoOwner)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
 	key := db.MemDB.KeyMaker().Append("repository", "id", "namespace").String()
@@ -32,9 +32,13 @@ func RepositoryID(repoOwner, repoName string) (int64, error) {
 			return strconv.FormatInt(repo.ID, 10), nil
 		})
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
 	repoID, err := strconv.ParseInt(repoIDRaw, 10, 64)
-	return repoID, errors.WithStack(err)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	return repoModel.GetRepository(db.DB, repoID)
 }

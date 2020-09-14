@@ -13,5 +13,10 @@ func InitDatabase() error {
 	var err error
 	var conf = conf.GetConfig()
 	DB, err = db.DoInitDatabase(conf.DBUrl, conf.Debug)
+	if err != nil {
+		return err
+	}
+
+	db.DB, err = db.DoInitDatabase(conf.DBUrl, conf.Debug)
 	return err
 }
