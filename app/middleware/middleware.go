@@ -39,9 +39,6 @@ type HandleFunc func(*common.Context) (httpCode int, appendText string, err erro
 
 type Middleware struct {
 	funcs []HandleFunc
-
-	lastErr        error
-	lastStatusCode int
 }
 
 func (m *Middleware) Add(fn HandleFunc) {
