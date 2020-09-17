@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	ErrUnauthorized = errors.New("Unauthorized")
+	ErrUnauthorized = MiddlewareError("Unauthorized")
 )
 
 // Authenticate 鉴权

@@ -113,12 +113,13 @@ func BuildContextFromHTTP(w http.ResponseWriter, r *http.Request) (*Context, err
 	}
 
 	// 这个阶段是无法获取用户的http账号密码信息的
-	// var operator *Operator = nil
-	// if userInfo != nil {
-	// 	operator = &Operator{
-	// 		HttpUser: userInfo,
-	// 	}
-	// }
+	var operator *Operator = nil
+	var username, password, ok = r.BasicAuth()
+	if ok {
+		operator = &Operator{
+			HttpUser: url.UserPassword(username, password),
+		}
+	}
 
 	return &Context{
 		ActionType: actionType,
@@ -128,7 +129,7 @@ func BuildContextFromHTTP(w http.ResponseWriter, r *http.Request) (*Context, err
 		RepoOwner:  repoOwner,
 		RepoName:   repoName,
 		RepoDir:    repoPath, // 仓库的具体地址
-		Operator:   nil,
+		Operator:   operator,
 		Resp:       w,
 		Req:        r,
 	}, nil

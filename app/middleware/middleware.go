@@ -7,6 +7,12 @@ import (
 	"github.com/growerlab/mensa/app/common"
 )
 
+type MiddlewareError string
+
+func (m MiddlewareError) Error() string {
+	return string(m)
+}
+
 type HandleFunc func(*common.Context) (httpCode int, appendText string, err error)
 
 type Middleware struct {
