@@ -62,12 +62,12 @@ func (m *Manager) Run() {
 
 func (m *Manager) ServerHandler(ctx *common.Context) *Result {
 	if m.entry != nil {
-		err := m.entry.Enter(ctx)
+		result, err := m.entry.Enter(ctx)
 		if err != nil {
 			return &Result{
-				HttpCode:    m.entry.HttpStatus(),
-				HttpMessage: m.entry.HttpStatusMessage(),
-				Err:         m.entry.LastErr(),
+				HttpCode:    result.HttpStatus(),
+				HttpMessage: result.HttpStatusMessage(),
+				Err:         result.LastErr(),
 			}
 		}
 	}

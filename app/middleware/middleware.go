@@ -13,6 +13,28 @@ func (m MiddlewareError) Error() string {
 	return string(m)
 }
 
+type HandleResult struct {
+	status       int
+	lastErrorMsg strings.Builder
+	lastError    error
+}
+
+func (h *HandleResult) HttpStatus() int {
+	return h.status
+}
+
+// 当进入失败时，应返回http错误的信息
+func (h *HandleResult) HttpStatusMessage() string {
+	h.lastErrorMsg.WriteString(http.StatusText(h.status))
+	h.lastErrorMsg.WriteString("\n----- Power by GrowerLab.net -----")
+	return h.lastErrorMsg.String()
+}
+
+// 错误码
+func (h *HandleResult) LastErr() error {
+	return h.lastError
+}
+
 type HandleFunc func(*common.Context) (httpCode int, appendText string, err error)
 
 type Middleware struct {
@@ -20,51 +42,30 @@ type Middleware struct {
 
 	lastErr        error
 	lastStatusCode int
-	lastAppendText strings.Builder
 }
 
 func (m *Middleware) Add(fn HandleFunc) {
 	m.funcs = append(m.funcs, fn)
 }
 
-func (m *Middleware) Run(ctx *common.Context) error {
+func (m *Middleware) Run(ctx *common.Context) (*HandleResult, error) {
+	result := &HandleResult{}
+
 	for _, fn := range m.funcs {
 		statusCode, appendText, err := fn(ctx)
 		if len(appendText) > 0 {
-			m.lastAppendText.WriteString(appendText)
+			result.lastErrorMsg.WriteString(appendText)
 		}
-		m.lastStatusCode = statusCode
+		result.status = statusCode
 		if err != nil {
-			m.lastErr = err
-			return m.lastErr
+			result.lastError = err
+			return result, nil
 		}
 	}
-	return nil
+	return result, nil
 }
 
-func (m *Middleware) Enter(ctx *common.Context) error {
-	err := m.Run(ctx)
-	return err
-}
-
-func (m *Middleware) HttpStatus() int {
-	return m.lastStatusCode
-}
-
-func (m *Middleware) HttpStatusMessage() string {
-	if m.lastStatusCode == 0 {
-		m.lastStatusCode = http.StatusOK
-	}
-
-	var sb strings.Builder
-	sb.WriteString(http.StatusText(m.lastStatusCode))
-	if m.lastAppendText.Len() > 0 {
-		sb.WriteString(m.lastAppendText.String())
-	}
-	sb.WriteString("\n----- Power by GrowerLab.net -----")
-	return sb.String()
-}
-
-func (m *Middleware) LastErr() error {
-	return m.lastErr
+func (m *Middleware) Enter(ctx *common.Context) (*HandleResult, error) {
+	result, err := m.Run(ctx)
+	return result, err
 }
