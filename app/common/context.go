@@ -107,9 +107,9 @@ func BuildContextFromHTTP(w http.ResponseWriter, r *http.Request) (*Context, err
 		return nil, err
 	}
 
-	actionType := ActionTypeRead
+	actionType := ActionTypeWrite
 	if uri.Query().Get("service") == "git-upload-pack" {
-		actionType = ActionTypeWrite
+		actionType = ActionTypeRead
 	}
 
 	// 这个阶段是无法获取用户的http账号密码信息的
@@ -147,9 +147,9 @@ func BuildContextFromSSH(session ssh.Session) (*Context, error) {
 		return nil, err
 	}
 
-	actionType := ActionTypeRead
+	actionType := ActionTypeWrite
 	if commands[0] == "git-upload-pack" {
-		actionType = ActionTypeWrite
+		actionType = ActionTypeRead
 	}
 
 	return &Context{
