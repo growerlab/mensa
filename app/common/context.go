@@ -1,6 +1,7 @@
 package common
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -96,8 +97,15 @@ func (c *Context) IsReadAction() bool {
 
 func (c *Context) Desc() string {
 	// who do what
-	// return fmt.Sprintf(c.)
-	return ""
+	who := "unknown"
+	if c.Operator != nil {
+		if c.Operator.IsHttp() {
+			who = c.Operator.HttpUser.Username()
+		} else {
+			who = string(c.Operator.SSHPublicKey.Marshal())
+		}
+	}
+	return fmt.Sprintf("'%s' %s  repo: '%s/%s' on %s", who, c.ActionType, c.RepoOwner, c.RepoName, c.Type)
 }
 
 func BuildContextFromHTTP(w http.ResponseWriter, r *http.Request) (*Context, error) {

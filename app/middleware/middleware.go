@@ -45,7 +45,7 @@ func (m *Middleware) Add(fn HandleFunc) {
 	m.funcs = append(m.funcs, fn)
 }
 
-func (m *Middleware) Run(ctx *common.Context) (*HandleResult, error) {
+func (m *Middleware) Run(ctx *common.Context) *HandleResult {
 	result := &HandleResult{}
 
 	for _, fn := range m.funcs {
@@ -56,13 +56,12 @@ func (m *Middleware) Run(ctx *common.Context) (*HandleResult, error) {
 		result.status = statusCode
 		if err != nil {
 			result.lastError = err
-			return result, nil
+			return result
 		}
 	}
-	return result, nil
+	return result
 }
 
-func (m *Middleware) Enter(ctx *common.Context) (*HandleResult, error) {
-	result, err := m.Run(ctx)
-	return result, err
+func (m *Middleware) Enter(ctx *common.Context) *HandleResult {
+	return m.Run(ctx)
 }

@@ -7,13 +7,17 @@ import (
 	"github.com/growerlab/mensa/app/common"
 )
 
-type Result struct {
+type MiddlewareResult struct {
 	HttpCode    int
 	HttpMessage string
 	Err         error
 }
 
-type MiddlewareHandler func(ctx *common.Context) *Result
+func (r *MiddlewareResult) Error() string {
+	return r.Err.Error()
+}
+
+type MiddlewareHandler func(ctx *common.Context) *MiddlewareResult
 
 type Server interface {
 	// 启动并监听服务
@@ -60,11 +64,11 @@ func (m *Manager) Run() {
 	wg.Wait()
 }
 
-func (m *Manager) ServerHandler(ctx *common.Context) *Result {
+func (m *Manager) ServerHandler(ctx *common.Context) *MiddlewareResult {
 	if m.entry != nil {
-		result, err := m.entry.Enter(ctx)
-		if err != nil {
-			return &Result{
+		result := m.entry.Enter(ctx)
+		if result.LastErr() != nil {
+			return &MiddlewareResult{
 				HttpCode:    result.HttpStatus(),
 				HttpMessage: result.HttpStatusMessage(),
 				Err:         result.LastErr(),

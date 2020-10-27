@@ -18,5 +18,5 @@ import (
 // 	当用户连接到服务
 type Entryer interface {
 	// 进入前的预备操作
-	Enter(ctx *common.Context) (result *middleware.HandleResult, err error)
+	Enter(ctx *common.Context) (result *middleware.HandleResult)
 }

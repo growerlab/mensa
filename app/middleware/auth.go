@@ -26,7 +26,7 @@ func Authenticate(ctx *common.Context) (httpCode int, appendText string, err err
 	if err = checkPermission(ctx); err != nil {
 		httpCode = http.StatusUnauthorized
 		appendText = err.Error()
-		log.Printf("%s, unauthorized: %v\n", ctx.Desc(), err)
+		log.Printf("%s, err: unauthorized '%v'\n", ctx.Desc(), err)
 		return
 	}
 	return
@@ -44,7 +44,8 @@ func checkPermission(ctx *common.Context) error {
 
 	if repo.IsPublic() {
 		if ctx.IsReadAction() {
-			return permission.CheckCloneRepository(nil, repo.ID)
+			return nil
+			// return permission.CheckCloneRepository(nil, repo.ID)
 		} else {
 			var nsID int64
 			var err error

@@ -43,8 +43,8 @@ func NewGitHttpServer(cfg *conf.Config) *GitHttpServer {
 	}
 
 	server.services = map[string]service{
-		"(.*?)/git-upload-pack$":                       {"POST", RpcUploadPack, server.serviceRpc},
-		"(.*?)/git-receive-pack$":                      {"POST", RpcReceivePack, server.serviceRpc},
+		"(.*?)/git-upload-pack$":                       {"POST", RpcUploadPack, server.serviceRpc},  // 用户拉取
+		"(.*?)/git-receive-pack$":                      {"POST", RpcReceivePack, server.serviceRpc}, // 用户推送
 		"(.*?)/info/refs$":                             {"GET", "", server.getInfoRefs},
 		"(.*?)/HEAD$":                                  {"GET", "", server.getTextFile},
 		"(.*?)/objects/info/alternates$":               {"GET", "", server.getTextFile},
@@ -132,18 +132,9 @@ func (g *GitHttpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[http] %s-[%s] TAKE: %s\n", preLog, end.Format(time.RFC3339), end.Sub(begin))
 	}()
 
-	ctx, err := common.BuildContextFromHTTP(w, r)
-	if err != nil {
-		g.httpRender(w, http.StatusBadRequest, "bad request")
-		return
-	}
-
-	result := g.middlewareHandler(ctx)
-	if result != nil {
-		log.Printf("[http] middleware err: %+v \nresult:%d %s\n", result.Err, result.HttpCode, result.HttpMessage)
-		g.httpRender(w, result.HttpCode, "")
-		return
-	}
+	var status = http.StatusOK
+	var statusContent = ""
+	var serviceFound = false
 
 	// git服务
 	for match, service := range g.services {
@@ -154,34 +145,49 @@ func (g *GitHttpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if m := re.FindStringSubmatch(r.URL.Path); m != nil {
+			serviceFound = true
 			log.Println("[http] git handler commands: ", m)
 			if service.Method != r.Method {
-				g.httpRender(w, http.StatusMethodNotAllowed, "invalid method: "+r.Method)
-				return
+				status = http.StatusMethodNotAllowed
+				break
 			}
 
 			file := strings.Replace(r.URL.Path, m[1]+"/", "", 1)
+			_, _, repoDir, err := common.BuildRepoInfoByPath(r.URL.Path)
+			if err != nil {
+				status = http.StatusInternalServerError
+				break
+			}
+
 			req := &requestContext{
 				w:    w,
 				r:    r,
 				Rpc:  service.Rpc,
-				Dir:  ctx.RepoDir,
+				Dir:  repoDir,
 				File: file,
 			}
-
 			err = service.Do(req)
 			if err != nil {
 				log.Printf("[http] service.Do was err: %+v\n", err)
+				if middlewareError, ok := err.(*MiddlewareResult); ok {
+					status = middlewareError.HttpCode
+					statusContent = middlewareError.HttpMessage
+				}
 			}
-			return
+			break
 		}
 	}
-	g.httpRender(w, http.StatusBadRequest, "invalid command")
+	if !serviceFound {
+		statusContent = "invalid command"
+	}
+	g.httpRender(w, status, statusContent)
 }
 
 func (g *GitHttpServer) httpRender(w http.ResponseWriter, statusCode int, message string) {
 	w.WriteHeader(statusCode)
-	_, _ = w.Write([]byte(message))
+	if len(message) > 0 {
+		_, _ = w.Write([]byte(message))
+	}
 }
 
 func (g *GitHttpServer) getInfoPacks(ctx *requestContext) error {
@@ -214,14 +220,27 @@ func (g *GitHttpServer) getTextFile(ctx *requestContext) error {
 	return nil
 }
 
+func (g *GitHttpServer) runMiddlewareHandlers(ctx *requestContext) error {
+	commonCtx, err := common.BuildContextFromHTTP(ctx.w, ctx.r)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	result := g.middlewareHandler(commonCtx)
+	if result != nil {
+		log.Printf("[http] middleware err: %+v \nresult:%d %s\n", result.Err, result.HttpCode, result.HttpMessage)
+		return result
+	}
+	return nil
+}
+
 func (g *GitHttpServer) serviceRpc(ctx *requestContext) error {
 	w, r, rpc, dir := ctx.w, ctx.r, ctx.Rpc, ctx.Dir
 
-	w.Header().Set("Content-Type", fmt.Sprintf("application/x-git-%s-result", rpc))
-	w.WriteHeader(http.StatusOK)
-
 	var body = r.Body
 	defer body.Close()
+
+	w.Header().Set("Content-Type", fmt.Sprintf("application/x-git-%s-result", rpc))
 
 	if r.Header.Get("Content-Encoding") == "gzip" {
 		body, _ = gzip.NewReader(r.Body)
@@ -233,12 +252,13 @@ func (g *GitHttpServer) serviceRpc(ctx *requestContext) error {
 	cmdCtx, cancel := context.WithTimeout(context.Background(), time.Duration(g.deadline)*time.Second)
 	defer cancel()
 
+	// g.httpRender(w, http.StatusOK, "")
+
 	cmd := exec.CommandContext(cmdCtx, g.gitBinPath, args...)
 	cmd.Dir = dir
 	cmd.Stdin = body
 	cmd.Stdout = w
 	cmd.Stderr = w
-
 	err := cmd.Run()
 	if err != nil {
 		return errors.WithStack(err)
@@ -252,6 +272,11 @@ func (g *GitHttpServer) getInfoRefs(ctx *requestContext) error {
 
 	access := g.hasAccess(r, dir, serviceName, false)
 	if access {
+		err := g.runMiddlewareHandlers(ctx)
+		if err != nil {
+			return err
+		}
+
 		args := []string{serviceName, "--stateless-rpc", "--advertise-refs", "."}
 		refs, err := g.gitCommand(dir, args...)
 		if err != nil {
@@ -260,7 +285,7 @@ func (g *GitHttpServer) getInfoRefs(ctx *requestContext) error {
 
 		g.hdrNocache(w)
 		w.Header().Set("Content-Type", fmt.Sprintf("application/x-git-%s-advertisement", serviceName))
-		w.WriteHeader(http.StatusOK)
+		// w.WriteHeader(http.StatusOK)
 		w.Write(g.packetWrite("# service=git-" + serviceName + "\n"))
 		w.Write(g.packetFlush())
 		w.Write([]byte(refs))
@@ -291,7 +316,7 @@ func (g *GitHttpServer) sendFile(contentType string, ctx *requestContext) {
 
 	f, err := os.Stat(reqFile)
 	if os.IsNotExist(err) {
-		g.httpRender(w, http.StatusNotFound, "not found")
+		http.NotFound(w, r)
 		return
 	}
 	w.Header().Set("Content-Type", contentType)
@@ -307,14 +332,14 @@ func (g *GitHttpServer) hasAccess(r *http.Request, dir string, rpc string, check
 		}
 	}
 
-	if !(rpc == "upload-pack" || rpc == "receive-pack") {
+	if !(rpc == RpcUploadPack || rpc == RpcReceivePack) {
 		return false
 	}
-	if rpc == "receive-pack" {
+	if rpc == RpcReceivePack {
 		// return g.config.ReceivePack
 		return true
 	}
-	if rpc == "upload-pack" {
+	if rpc == RpcUploadPack {
 		// return g.config.UploadPack
 		return true
 	}
@@ -339,7 +364,7 @@ func (g *GitHttpServer) getConfigSetting(serviceName string, dir string) bool {
 		return false
 	}
 
-	if serviceName == "uploadpack" {
+	if serviceName == UploadPack {
 		return setting != "false"
 	}
 	return setting == "true"
