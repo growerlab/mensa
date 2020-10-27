@@ -7,7 +7,7 @@
 ROOT=$GOPATH/src/github.com/growerlab/mensa/test
 TEST_PATH=$ROOT/test
 
-cd $ROOT
+cd $ROOT || exit
 
 rm -rf $TEST_PATH
 

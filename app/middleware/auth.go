@@ -45,7 +45,6 @@ func checkPermission(ctx *common.Context) error {
 	if repo.IsPublic() {
 		if ctx.IsReadAction() {
 			return nil
-			// return permission.CheckCloneRepository(nil, repo.ID)
 		} else {
 			var nsID int64
 			var err error
