@@ -22,3 +22,5 @@ test.go
 /test/repos
 /test/test
 local
+
+/test/*.txt
