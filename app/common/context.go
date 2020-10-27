@@ -120,7 +120,6 @@ func BuildContextFromHTTP(w http.ResponseWriter, r *http.Request) (*Context, err
 		actionType = ActionTypeRead
 	}
 
-	// 这个阶段是无法获取用户的http账号密码信息的
 	var operator *Operator = nil
 	var username, password, ok = r.BasicAuth()
 	if ok {

@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"net/http"
+	"fmt"
 	"strings"
 
 	"github.com/growerlab/mensa/app/common"
@@ -25,7 +25,7 @@ func (h *HandleResult) HttpStatus() int {
 
 // 当进入失败时，应返回http错误的信息
 func (h *HandleResult) HttpStatusMessage() string {
-	h.lastErrorMsg.WriteString(http.StatusText(h.status))
+	h.lastErrorMsg.WriteString(fmt.Sprintf("\n%d", h.status))
 	h.lastErrorMsg.WriteString("\n----- Power by GrowerLab.net -----")
 	return h.lastErrorMsg.String()
 }

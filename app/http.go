@@ -228,6 +228,9 @@ func (g *GitHttpServer) runMiddlewareHandlers(ctx *requestContext) error {
 
 	result := g.middlewareHandler(commonCtx)
 	if result != nil {
+		if result.HttpCode == http.StatusUnauthorized {
+			ctx.w.Header().Set("WWW-Authenticate", "Basic") // fmt.Sprintf("Basic realm=%s charset=UTF-8"))
+		}
 		log.Printf("[http] middleware err: %+v \nresult:%d %s\n", result.Err, result.HttpCode, result.HttpMessage)
 		return result
 	}
