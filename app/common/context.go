@@ -19,7 +19,6 @@ type ProtType string
 const (
 	ProtTypeHTTP ProtType = "http"
 	ProtTypeSSH  ProtType = "ssh"
-	ProtTypeGIT  ProtType = "git"
 )
 
 type Action string
