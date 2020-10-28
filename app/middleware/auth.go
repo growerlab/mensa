@@ -24,7 +24,12 @@ func Authenticate(ctx *common.Context) (httpCode int, appendText string, err err
 	}
 
 	if err = checkPermission(ctx); err != nil {
-		httpCode = http.StatusUnauthorized
+		switch errors.Cause(err) {
+		case service.NotFoundRepoError:
+			httpCode = http.StatusNotFound
+		default:
+			httpCode = http.StatusUnauthorized
+		}
 		appendText = err.Error()
 		log.Printf("%s, err: unauthorized '%v'\n", ctx.Desc(), err)
 		return

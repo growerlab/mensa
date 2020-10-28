@@ -6,14 +6,12 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"os/exec"
-	"path"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/growerlab/mensa/app/common"
 	"github.com/growerlab/mensa/app/conf"
 	"github.com/pkg/errors"
@@ -25,14 +23,14 @@ const (
 )
 
 func NewGitHttpServer(cfg *conf.Config) *GitHttpServer {
-	deadline := DefaultDeadline
-	idleTimeout := DefaultIdleTimeout
+	deadline := DefaultDeadline * time.Second
+	idleTimeout := DefaultIdleTimeout * time.Second
 
 	if cfg.Deadline > 0 {
-		deadline = cfg.Deadline
+		deadline = time.Duration(cfg.Deadline) * time.Second
 	}
 	if cfg.IdleTimeout > 0 {
-		idleTimeout = cfg.IdleTimeout
+		idleTimeout = time.Duration(cfg.IdleTimeout) * time.Second
 	}
 
 	server := &GitHttpServer{
@@ -42,67 +40,117 @@ func NewGitHttpServer(cfg *conf.Config) *GitHttpServer {
 		idleTimeout: idleTimeout,
 	}
 
-	server.services = map[string]service{
-		"(.*?)/git-upload-pack$":                       {"POST", RpcUploadPack, server.serviceRpc},  // 用户拉取
-		"(.*?)/git-receive-pack$":                      {"POST", RpcReceivePack, server.serviceRpc}, // 用户推送
-		"(.*?)/info/refs$":                             {"GET", "", server.getInfoRefs},
-		"(.*?)/HEAD$":                                  {"GET", "", server.getTextFile},
-		"(.*?)/objects/info/alternates$":               {"GET", "", server.getTextFile},
-		"(.*?)/objects/info/http-alternates$":          {"GET", "", server.getTextFile},
-		"(.*?)/objects/info/packs$":                    {"GET", "", server.getInfoPacks},
-		"(.*?)/objects/info/[^/]*$":                    {"GET", "", server.getTextFile},
-		"(.*?)/objects/[0-9a-f]{2}/[0-9a-f]{38}$":      {"GET", "", server.getLooseObject},
-		"(.*?)/objects/pack/pack-[0-9a-f]{40}\\.pack$": {"GET", "", server.getPackFile},
-		"(.*?)/objects/pack/pack-[0-9a-f]{40}\\.idx$":  {"GET", "", server.getIdxFile},
+	engine := gin.Default()
+	engine.Use(server.handlerMiddleware)
+	engine.GET("/:path/:repo_name/info/refs", server.handlerGetInfoRefs)
+	engine.POST("/:path/:repo_name/:rpc", server.handlerGitPack)
+
+	server.server = &http.Server{
+		Handler:      engine,
+		Addr:         cfg.HttpListen,
+		WriteTimeout: deadline,
+		IdleTimeout:  idleTimeout,
 	}
 	return server
 }
 
 type requestContext struct {
-	w    http.ResponseWriter
-	r    *http.Request
-	Rpc  string
-	Dir  string
-	File string
-}
-
-type service struct {
-	Method string
-	Rpc    string
-	Do     func(*requestContext) error
+	w   http.ResponseWriter
+	r   *http.Request
+	Rpc string
+	Dir string
 }
 
 type GitHttpServer struct {
+	// engine for http git
+	server *http.Server
 	// 服务器的监听地址(eg. host:port)
 	listen string
 	// git bin path
 	gitBinPath string
-	// logger
 	// logger io.Writer
 	// 最长执行时间
-	deadline int
+	deadline time.Duration
 	// 限制最大时间
-	idleTimeout int
-	// services
-	services map[string]service
-	// 回调
-	middlewareHandler MiddlewareHandler
+	idleTimeout time.Duration
+
+	MiddlewareHandler MiddlewareHandler
 }
 
 func (g *GitHttpServer) ListenAndServe(handler MiddlewareHandler) error {
 	log.Printf("[http] git listen and serve: %v\n", g.listen)
-	g.middlewareHandler = handler
 
 	if err := g.validate(); err != nil {
 		return err
 	}
 
-	g.prepre()
+	g.MiddlewareHandler = handler
 
-	if err := http.ListenAndServe(g.listen, g); err != nil {
+	if err := g.server.ListenAndServe(); err != nil {
 		return errors.WithStack(err)
 	}
 	return nil
+}
+
+func (g *GitHttpServer) handlerMiddleware(c *gin.Context) {
+	r := c.Request
+	w := c.Writer
+	// file := r.URL.Path
+	_, _, repoDir, err := common.BuildRepoInfoByPath(r.URL.Path)
+	if err != nil {
+		log.Printf("build repo info was err: %+v\n", err)
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	rpc := r.URL.Query().Get("service")
+	if len(rpc) == 0 {
+		rpc = c.Param("rpc")
+		if strings.HasPrefix(rpc, "git-") {
+			rpc = strings.Replace(rpc, "git-", "", 1)
+		}
+	}
+
+	req := &requestContext{
+		w:   w,
+		r:   r,
+		Rpc: rpc,
+		Dir: repoDir,
+	}
+	c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), "request_context", req))
+
+	c.Next()
+}
+
+func (g *GitHttpServer) handlerGitPack(c *gin.Context) {
+	reqContext, ok := c.Request.Context().Value("request_context").(*requestContext)
+	if !ok {
+		log.Println("handlerGitPack: 'request_context' must exist in context")
+		c.AbortWithStatus(http.StatusServiceUnavailable)
+		return
+	}
+
+	err := g.serviceRpc(reqContext)
+	if err != nil {
+		log.Printf("git rpc err: %v\n", err)
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+}
+
+func (g *GitHttpServer) handlerGetInfoRefs(c *gin.Context) {
+	reqContext, ok := c.Request.Context().Value("request_context").(*requestContext)
+	if !ok {
+		log.Println("handlerGetInfoRefs: 'request_context' must exist in context")
+		c.AbortWithStatus(http.StatusServiceUnavailable)
+		return
+	}
+
+	err := g.getInfoRefs(reqContext)
+	if err != nil {
+		log.Printf("get info refs was err: %+v\n", err)
+		return
+	}
 }
 
 func (g *GitHttpServer) validate() error {
@@ -115,109 +163,11 @@ func (g *GitHttpServer) validate() error {
 	return nil
 }
 
-func (g *GitHttpServer) prepre() {
-
-}
-
-// TODO 平滑重启
+// 平滑重启
 func (g *GitHttpServer) Shutdown() error {
-	return nil
-}
-
-func (g *GitHttpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	begin := time.Now()
-	preLog := fmt.Sprintf("METHOD: %s IP: %s URL: %s [%s]", r.Method, r.RemoteAddr, r.URL.String(), begin.Format(time.RFC3339))
-	defer func() {
-		end := time.Now()
-		log.Printf("[http] %s-[%s] TAKE: %s\n", preLog, end.Format(time.RFC3339), end.Sub(begin))
-	}()
-
-	var status = http.StatusOK
-	var statusContent = ""
-	var serviceFound = false
-
-	// git服务
-	for match, service := range g.services {
-		re, err := regexp.Compile(match)
-		if err != nil {
-			log.Println(errors.Errorf("does not match service: %s", match))
-			return
-		}
-
-		if m := re.FindStringSubmatch(r.URL.Path); m != nil {
-			serviceFound = true
-			log.Println("[http] git handler commands: ", m)
-			if service.Method != r.Method {
-				status = http.StatusMethodNotAllowed
-				break
-			}
-
-			file := strings.Replace(r.URL.Path, m[1]+"/", "", 1)
-			_, _, repoDir, err := common.BuildRepoInfoByPath(r.URL.Path)
-			if err != nil {
-				status = http.StatusInternalServerError
-				break
-			}
-
-			req := &requestContext{
-				w:    w,
-				r:    r,
-				Rpc:  service.Rpc,
-				Dir:  repoDir,
-				File: file,
-			}
-			err = service.Do(req)
-			if err != nil {
-				log.Printf("[http] service.Do was err: %+v\n", err)
-				if middlewareError, ok := err.(*MiddlewareResult); ok {
-					status = middlewareError.HttpCode
-					statusContent = middlewareError.HttpMessage
-				}
-			}
-			break
-		}
-	}
-	if !serviceFound {
-		statusContent = "invalid command"
-	}
-	g.httpRender(w, status, statusContent)
-}
-
-func (g *GitHttpServer) httpRender(w http.ResponseWriter, statusCode int, message string) {
-	w.WriteHeader(statusCode)
-	if len(message) > 0 {
-		_, _ = w.Write([]byte(message))
-	}
-}
-
-func (g *GitHttpServer) getInfoPacks(ctx *requestContext) error {
-	g.hdrCacheForever(ctx.w)
-	g.sendFile("text/plain; charset=utf-8", ctx)
-	return nil
-}
-
-func (g *GitHttpServer) getLooseObject(ctx *requestContext) error {
-	g.hdrCacheForever(ctx.w)
-	g.sendFile("application/x-git-loose-object", ctx)
-	return nil
-}
-
-func (g *GitHttpServer) getPackFile(ctx *requestContext) error {
-	g.hdrCacheForever(ctx.w)
-	g.sendFile("application/x-git-packed-objects", ctx)
-	return nil
-}
-
-func (g *GitHttpServer) getIdxFile(ctx *requestContext) error {
-	g.hdrCacheForever(ctx.w)
-	g.sendFile("application/x-git-packed-objects-toc", ctx)
-	return nil
-}
-
-func (g *GitHttpServer) getTextFile(ctx *requestContext) error {
-	g.hdrNocache(ctx.w)
-	g.sendFile("text/plain", ctx)
-	return nil
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return g.server.Shutdown(ctx)
 }
 
 func (g *GitHttpServer) runMiddlewareHandlers(ctx *requestContext) error {
@@ -226,9 +176,10 @@ func (g *GitHttpServer) runMiddlewareHandlers(ctx *requestContext) error {
 		return errors.WithStack(err)
 	}
 
-	result := g.middlewareHandler(commonCtx)
+	result := g.MiddlewareHandler(commonCtx)
 	if result != nil {
 		if result.HttpCode == http.StatusUnauthorized {
+			ctx.w.WriteHeader(result.HttpCode)
 			ctx.w.Header().Set("WWW-Authenticate", "Basic") // fmt.Sprintf("Basic realm=%s charset=UTF-8"))
 		}
 		log.Printf("[http] middleware err: %+v \nresult:%d %s\n", result.Err, result.HttpCode, result.HttpMessage)
@@ -288,14 +239,13 @@ func (g *GitHttpServer) getInfoRefs(ctx *requestContext) error {
 
 		g.hdrNocache(w)
 		w.Header().Set("Content-Type", fmt.Sprintf("application/x-git-%s-advertisement", serviceName))
-		// w.WriteHeader(http.StatusOK)
 		w.Write(g.packetWrite("# service=git-" + serviceName + "\n"))
 		w.Write(g.packetFlush())
 		w.Write([]byte(refs))
 	} else {
 		g.updateServerInfo(dir)
 		g.hdrNocache(w)
-		g.sendFile("text/plain; charset=utf-8", ctx)
+		log.Printf("can't access %s %s\n", dir, serviceName)
 	}
 	return nil
 }
@@ -311,21 +261,6 @@ func (g *GitHttpServer) packetWrite(str string) []byte {
 		s = strings.Repeat("0", 4-len(s)%4) + s
 	}
 	return []byte(s + str)
-}
-
-func (g *GitHttpServer) sendFile(contentType string, ctx *requestContext) {
-	w, r := ctx.w, ctx.r
-	reqFile := path.Join(ctx.Dir, ctx.File)
-
-	f, err := os.Stat(reqFile)
-	if os.IsNotExist(err) {
-		http.NotFound(w, r)
-		return
-	}
-	w.Header().Set("Content-Type", contentType)
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", f.Size()))
-	w.Header().Set("Last-Modified", f.ModTime().Format(http.TimeFormat))
-	http.ServeFile(w, r, reqFile)
 }
 
 func (g *GitHttpServer) hasAccess(r *http.Request, dir string, rpc string, checkContentType bool) bool {
@@ -398,12 +333,4 @@ func (g *GitHttpServer) hdrNocache(w http.ResponseWriter) {
 	w.Header().Set("Expires", "Fri, 01 Jan 1980 00:00:00 GMT")
 	w.Header().Set("Pragma", "no-cache")
 	w.Header().Set("Cache-Control", "no-cache, max-age=0, must-revalidate")
-}
-
-func (g *GitHttpServer) hdrCacheForever(w http.ResponseWriter) {
-	now := time.Now().Unix()
-	expires := now + 31536000
-	w.Header().Set("Date", fmt.Sprintf("%d", now))
-	w.Header().Set("Expires", fmt.Sprintf("%d", expires))
-	w.Header().Set("Cache-Control", "public, max-age=31536000")
 }

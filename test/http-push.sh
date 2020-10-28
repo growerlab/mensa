@@ -9,7 +9,7 @@ TEMP_PATH=$ROOT/temp
 
 git clone http://localhost:8080/moli/test.git $TEMP_PATH
 
-cd $ROOT/temp
+cd $TEMP_PATH || exit
 
 touch push.txt
 echo "for push" >> push.txt

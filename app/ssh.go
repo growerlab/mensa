@@ -37,14 +37,14 @@ var AllowedCommandMap = map[string]string{
 }
 
 func NewGitSSHServer(cfg *conf.Config) *GitSSHServer {
-	deadline := DefaultDeadline
-	idleTimeout := DefaultIdleTimeout
+	deadline := DefaultDeadline * time.Second
+	idleTimeout := DefaultIdleTimeout * time.Second
 
 	if cfg.Deadline > 0 {
-		deadline = cfg.Deadline
+		deadline = time.Duration(cfg.Deadline) * time.Second
 	}
 	if cfg.IdleTimeout > 0 {
-		idleTimeout = cfg.IdleTimeout
+		idleTimeout = time.Duration(cfg.IdleTimeout) * time.Second
 	}
 
 	gitServer := &GitSSHServer{
@@ -62,12 +62,12 @@ type GitSSHServer struct {
 	handler MiddlewareHandler
 
 	srv         *ssh.Server
-	gitBinPath  string   // bin git
-	gitUser     string   // default "git"
-	listen      string   // listen addr
-	hostKeys    []string // host keys
-	deadline    int      // default 3600
-	idleTimeout int      // default 120
+	gitBinPath  string        // bin git
+	gitUser     string        // default "git"
+	listen      string        // listen addr
+	hostKeys    []string      // host keys
+	deadline    time.Duration // default 3600
+	idleTimeout time.Duration // default 120
 }
 
 // Shutdown close all server and wait.

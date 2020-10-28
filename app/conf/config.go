@@ -32,8 +32,8 @@ type Config struct {
 	Listen      string `yaml:"listen"`
 	HttpListen  string `yaml:"http_listen"`
 	GitPath     string `yaml:"git_path"`
-	Deadline    int    `yaml:"deadline"`
-	IdleTimeout int    `yaml:"idle_timeout"`
+	Deadline    int64  `yaml:"deadline"`
+	IdleTimeout int64  `yaml:"idle_timeout"`
 	GitRepoDir  string `yaml:"git_repo_dir"`
 	DBUrl       string `yaml:"db_url"`
 	Redis       *Redis `yaml:"redis"`

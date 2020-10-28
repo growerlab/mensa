@@ -1,12 +1,15 @@
 package service
 
 import (
+	"fmt"
 	"strconv"
 
 	repoModel "github.com/growerlab/backend/app/model/repository"
 	"github.com/growerlab/mensa/app/db"
 	"github.com/pkg/errors"
 )
+
+var NotFoundRepoError = errors.New("not found repo")
 
 func GetRepository(repoOwner, repoName string) (*repoModel.Repository, error) {
 	repoOwnerNS, err := GetUserNamespaceByUsername(repoOwner)
@@ -27,7 +30,7 @@ func GetRepository(repoOwner, repoName string) (*repoModel.Repository, error) {
 				return "", err
 			}
 			if repo == nil {
-				return "", errors.Errorf("not found repo: %s/%s", repoOwner, repoName)
+				return "", errors.WithMessage(NotFoundRepoError, fmt.Sprintf("%s/%s", repoOwner, repoName))
 			}
 			return strconv.FormatInt(repo.ID, 10), nil
 		})
