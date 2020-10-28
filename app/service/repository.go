@@ -20,7 +20,7 @@ func GetRepository(repoOwner, repoName string) (*repoModel.Repository, error) {
 	key := db.MemDB.KeyMaker().Append("repository", "id", "namespace").String()
 	field := db.MemDB.KeyMakerNoNS().Append(repoOwner, repoName).String()
 
-	// 仓库的公开状态可能变动，所以这里仅缓存仓库id
+	// 仓库的公开状态等属性可能变动，所以这里仅缓存仓库id
 	repoIDRaw, err := NewCache().GetOrSet(
 		key,
 		field,
