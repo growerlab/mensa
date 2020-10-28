@@ -4,10 +4,8 @@ import (
 	"compress/gzip"
 	"context"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
-	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -16,11 +14,6 @@ import (
 	"github.com/growerlab/mensa/app/common"
 	"github.com/growerlab/mensa/app/conf"
 	"github.com/pkg/errors"
-)
-
-const (
-	RpcUploadPack  = "upload-pack"
-	RpcReceivePack = "receive-pack"
 )
 
 func NewGitHttpServer(cfg *conf.Config) *GitHttpServer {
@@ -201,7 +194,7 @@ func (g *GitHttpServer) serviceRpc(ctx *requestContext) error {
 	}
 
 	args := []string{rpc, "--stateless-rpc", dir}
-	err := g.gitCommand(body, w, dir, args...)
+	err := gitCommand(body, w, dir, args...)
 	return errors.WithStack(err)
 }
 
@@ -221,7 +214,7 @@ func (g *GitHttpServer) getInfoRefs(ctx *requestContext) error {
 		_, _ = w.Write(g.packetFlush())
 
 		args := []string{rpc, "--stateless-rpc", "--advertise-refs", "."}
-		err = g.gitCommand(nil, w, dir, args...)
+		err = gitCommand(nil, w, dir, args...)
 		if err != nil {
 			return err
 		}
@@ -253,14 +246,14 @@ func (g *GitHttpServer) hasAccess(r *http.Request, dir string, rpc string, check
 		}
 	}
 
-	if !(rpc == RpcUploadPack || rpc == RpcReceivePack) {
+	if !(rpc == UploadPack || rpc == ReceivePack) {
 		return false
 	}
-	if rpc == RpcReceivePack {
+	if rpc == ReceivePack {
 		// return g.config.ReceivePack
 		return true
 	}
-	if rpc == RpcUploadPack {
+	if rpc == UploadPack {
 		// return g.config.UploadPack
 		return true
 	}
@@ -297,33 +290,15 @@ func (g *GitHttpServer) getConfigSetting(serviceName string, dir string) bool {
 func (g *GitHttpServer) getGitConfig(configName string, dir string) (string, error) {
 	var args = []string{"config", configName}
 	var out strings.Builder
-	err := g.gitCommand(nil, &out, dir, args...)
+	err := gitCommand(nil, &out, dir, args...)
 	return out.String(), errors.WithStack(err)
 }
 
 func (g *GitHttpServer) updateServerInfo(dir string) (string, error) {
 	var args = []string{"update-server-info"}
 	var out strings.Builder
-	err := g.gitCommand(nil, &out, dir, args...)
+	err := gitCommand(nil, &out, dir, args...)
 	return out.String(), errors.WithStack(err)
-}
-
-func (g *GitHttpServer) gitCommand(in io.Reader, out io.Writer, repoDir string, args ...string) error {
-	// deadline
-	cmdCtx, cancel := context.WithTimeout(context.Background(), g.deadline)
-	defer cancel()
-
-	cmd := exec.CommandContext(cmdCtx, g.gitBinPath, args...)
-	cmd.Dir = repoDir
-	if in != nil {
-		cmd.Stdin = in
-	}
-	if out != nil {
-		cmd.Stdout = out
-	}
-	cmd.Stderr = gin.DefaultErrorWriter
-	err := cmd.Run()
-	return errors.WithStack(err)
 }
 
 func (g *GitHttpServer) hdrNocache(w http.ResponseWriter) {

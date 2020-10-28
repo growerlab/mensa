@@ -13,10 +13,6 @@ type MiddlewareResult struct {
 	Err         error
 }
 
-func (r *MiddlewareResult) Error() string {
-	return r.Err.Error()
-}
-
 type MiddlewareHandler func(ctx *common.Context) *MiddlewareResult
 
 type Server interface {

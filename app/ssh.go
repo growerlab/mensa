@@ -1,9 +1,7 @@
 package app
 
 import (
-	"context"
 	"log"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -12,29 +10,6 @@ import (
 	"github.com/growerlab/mensa/app/conf"
 	"github.com/pkg/errors"
 )
-
-// TODO 平滑重启
-
-const (
-	DefaultIdleTimeout = 120  // 链接最大闲置时间
-	DefaultDeadline    = 3600 // git 的默认执行时间，最长1小时
-)
-
-const (
-	GitReceivePack   = "git-receive-pack"
-	GitUploadPack    = "git-upload-pack"
-	GitUploadArchive = "git-upload-archive"
-
-	ReceivePack   = "receive-pack"
-	UploadPack    = "upload-pack"
-	UploadArchive = "upload-archive"
-)
-
-var AllowedCommandMap = map[string]string{
-	GitReceivePack:   ReceivePack,
-	GitUploadPack:    UploadPack,
-	GitUploadArchive: UploadArchive,
-}
 
 func NewGitSSHServer(cfg *conf.Config) *GitSSHServer {
 	deadline := DefaultDeadline * time.Second
@@ -65,7 +40,6 @@ type GitSSHServer struct {
 	gitBinPath  string        // bin git
 	gitUser     string        // default "git"
 	listen      string        // listen addr
-	hostKeys    []string      // host keys
 	deadline    time.Duration // default 3600
 	idleTimeout time.Duration // default 120
 }
@@ -94,10 +68,7 @@ func (g *GitSSHServer) ListenAndServe(handler MiddlewareHandler) error {
 }
 
 func (g *GitSSHServer) sessionHandler(session ssh.Session) {
-	var err error
-	defer func() {
-		session.Close()
-	}()
+	defer session.Close()
 
 	ctx, err := common.BuildContextFromSSH(session)
 	if err != nil {
@@ -107,7 +78,7 @@ func (g *GitSSHServer) sessionHandler(session ssh.Session) {
 	log.Println("[ssh] git handler commands: ", ctx.RawCommands, ctx.RepoDir)
 
 	result := g.handler(ctx)
-	if result != nil {
+	if result.Err != nil {
 		_, _ = session.Write([]byte(result.HttpMessage))
 		return
 	}
@@ -118,16 +89,9 @@ func (g *GitSSHServer) sessionHandler(session ssh.Session) {
 		return
 	}
 
-	// deadline
-	cmdCtx, cancel := context.WithTimeout(context.Background(), g.deadline)
-	defer cancel()
-
 	args := []string{service, ctx.RepoDir}
-	cmd := exec.CommandContext(cmdCtx, g.gitBinPath, args...)
-	cmd.Dir = ctx.RepoDir
-	cmd.Stdin = session
-	cmd.Stdout = session
-	err = cmd.Run()
+
+	err = gitCommand(session, session, ctx.RepoDir, args...)
 	if err != nil {
 		log.Printf("[ssh] git was err on running: %v\n", err)
 	}
@@ -151,7 +115,7 @@ func (g *GitSSHServer) run() error {
 		return false
 	})
 
-	publicKeyHanderOption := ssh.PublicKeyAuth(func(ctx ssh.Context, key ssh.PublicKey) bool {
+	publicKeyOption := ssh.PublicKeyAuth(func(ctx ssh.Context, key ssh.PublicKey) bool {
 		if g.gitUser != ctx.User() {
 			return false
 		}
@@ -160,7 +124,7 @@ func (g *GitSSHServer) run() error {
 
 	defaultOption := func(server *ssh.Server) error {
 		server.IdleTimeout = g.idleTimeout
-		server.MaxTimeout = 30 * time.Second
+		server.MaxTimeout = g.deadline
 		server.Version = UA
 		return nil
 	}
@@ -169,7 +133,7 @@ func (g *GitSSHServer) run() error {
 		Handler: g.sessionHandler,
 		Addr:    g.listen,
 	}
-	g.srv.SetOption(publicKeyHanderOption)
+	g.srv.SetOption(publicKeyOption)
 	g.srv.SetOption(passwordOption)
 	g.srv.SetOption(defaultOption)
 	// for _, k := range g.hostKeys {
