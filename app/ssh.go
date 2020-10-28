@@ -119,7 +119,7 @@ func (g *GitSSHServer) sessionHandler(session ssh.Session) {
 	}
 
 	// deadline
-	cmdCtx, cancel := context.WithTimeout(context.Background(), time.Duration(g.deadline)*time.Second)
+	cmdCtx, cancel := context.WithTimeout(context.Background(), g.deadline)
 	defer cancel()
 
 	args := []string{service, ctx.RepoDir}
@@ -159,7 +159,7 @@ func (g *GitSSHServer) run() error {
 	})
 
 	defaultOption := func(server *ssh.Server) error {
-		server.IdleTimeout = time.Duration(g.idleTimeout) * time.Second
+		server.IdleTimeout = g.idleTimeout
 		server.MaxTimeout = 30 * time.Second
 		server.Version = UA
 		return nil

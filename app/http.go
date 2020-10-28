@@ -4,6 +4,7 @@ import (
 	"compress/gzip"
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os/exec"
@@ -41,7 +42,7 @@ func NewGitHttpServer(cfg *conf.Config) *GitHttpServer {
 	}
 
 	engine := gin.Default()
-	engine.Use(server.handlerMiddleware)
+	engine.Use(server.handlerBuildRequestContext)
 	engine.GET("/:path/:repo_name/info/refs", server.handlerGetInfoRefs)
 	engine.POST("/:path/:repo_name/:rpc", server.handlerGitPack)
 
@@ -55,6 +56,7 @@ func NewGitHttpServer(cfg *conf.Config) *GitHttpServer {
 }
 
 type requestContext struct {
+	c   *gin.Context
 	w   http.ResponseWriter
 	r   *http.Request
 	Rpc string
@@ -92,7 +94,7 @@ func (g *GitHttpServer) ListenAndServe(handler MiddlewareHandler) error {
 	return nil
 }
 
-func (g *GitHttpServer) handlerMiddleware(c *gin.Context) {
+func (g *GitHttpServer) handlerBuildRequestContext(c *gin.Context) {
 	r := c.Request
 	w := c.Writer
 	// file := r.URL.Path
@@ -103,23 +105,16 @@ func (g *GitHttpServer) handlerMiddleware(c *gin.Context) {
 		return
 	}
 
-	rpc := r.URL.Query().Get("service")
-	if len(rpc) == 0 {
-		rpc = c.Param("rpc")
-		if strings.HasPrefix(rpc, "git-") {
-			rpc = strings.Replace(rpc, "git-", "", 1)
-		}
-	}
+	rpc := g.getServiceType(c)
 
 	req := &requestContext{
+		c:   c,
 		w:   w,
 		r:   r,
 		Rpc: rpc,
 		Dir: repoDir,
 	}
 	c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), "request_context", req))
-
-	c.Next()
 }
 
 func (g *GitHttpServer) handlerGitPack(c *gin.Context) {
@@ -132,7 +127,7 @@ func (g *GitHttpServer) handlerGitPack(c *gin.Context) {
 
 	err := g.serviceRpc(reqContext)
 	if err != nil {
-		log.Printf("git rpc err: %v\n", err)
+		log.Printf("git rpc err: %+v\n", err)
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
@@ -148,7 +143,7 @@ func (g *GitHttpServer) handlerGetInfoRefs(c *gin.Context) {
 
 	err := g.getInfoRefs(reqContext)
 	if err != nil {
-		log.Printf("get info refs was err: %+v\n", err)
+		log.Printf("get info refs was err: %v\n", err)
 		return
 	}
 }
@@ -170,22 +165,27 @@ func (g *GitHttpServer) Shutdown() error {
 	return g.server.Shutdown(ctx)
 }
 
-func (g *GitHttpServer) runMiddlewareHandlers(ctx *requestContext) error {
+func (g *GitHttpServer) runMiddlewares(ctx *requestContext) error {
 	commonCtx, err := common.BuildContextFromHTTP(ctx.w, ctx.r)
 	if err != nil {
 		return errors.WithStack(err)
 	}
 
 	result := g.MiddlewareHandler(commonCtx)
-	if result != nil {
-		if result.HttpCode == http.StatusUnauthorized {
-			ctx.w.WriteHeader(result.HttpCode)
-			ctx.w.Header().Set("WWW-Authenticate", "Basic") // fmt.Sprintf("Basic realm=%s charset=UTF-8"))
-		}
-		log.Printf("[http] middleware err: %+v \nresult:%d %s\n", result.Err, result.HttpCode, result.HttpMessage)
-		return result
+	if result.HttpCode > http.StatusCreated {
+		ctx.w.WriteHeader(result.HttpCode)
+		ctx.w.Header().Set("WWW-Authenticate", "Basic") // fmt.Sprintf("Basic realm=%s charset=UTF-8"))
 	}
-	return nil
+
+	if result.Err != nil {
+		_, _ = ctx.w.Write([]byte(result.HttpMessage))
+		log.Printf("[http] middleware err: %+v \nresult:%d %s\n", result.Err, result.HttpCode, result.HttpMessage)
+	}
+
+	// if !commonCtx.IsReadAction() {
+	// 	 _, _ = ctx.w.Write([]byte(middleware.BannerMessage))
+	// }
+	return result.Err
 }
 
 func (g *GitHttpServer) serviceRpc(ctx *requestContext) error {
@@ -201,51 +201,34 @@ func (g *GitHttpServer) serviceRpc(ctx *requestContext) error {
 	}
 
 	args := []string{rpc, "--stateless-rpc", dir}
-
-	// deadline
-	cmdCtx, cancel := context.WithTimeout(context.Background(), time.Duration(g.deadline)*time.Second)
-	defer cancel()
-
-	// g.httpRender(w, http.StatusOK, "")
-
-	cmd := exec.CommandContext(cmdCtx, g.gitBinPath, args...)
-	cmd.Dir = dir
-	cmd.Stdin = body
-	cmd.Stdout = w
-	cmd.Stderr = w
-	err := cmd.Run()
-	if err != nil {
-		return errors.WithStack(err)
-	}
-	return nil
+	err := g.gitCommand(body, w, dir, args...)
+	return errors.WithStack(err)
 }
 
 func (g *GitHttpServer) getInfoRefs(ctx *requestContext) error {
-	w, r, dir := ctx.w, ctx.r, ctx.Dir
-	serviceName := g.getServiceType(r)
+	w, r, rpc, dir := ctx.w, ctx.r, ctx.Rpc, ctx.Dir
 
-	access := g.hasAccess(r, dir, serviceName, false)
+	access := g.hasAccess(r, dir, rpc, false)
 	if access {
-		err := g.runMiddlewareHandlers(ctx)
-		if err != nil {
-			return err
-		}
-
-		args := []string{serviceName, "--stateless-rpc", "--advertise-refs", "."}
-		refs, err := g.gitCommand(dir, args...)
+		err := g.runMiddlewares(ctx)
 		if err != nil {
 			return err
 		}
 
 		g.hdrNocache(w)
-		w.Header().Set("Content-Type", fmt.Sprintf("application/x-git-%s-advertisement", serviceName))
-		w.Write(g.packetWrite("# service=git-" + serviceName + "\n"))
-		w.Write(g.packetFlush())
-		w.Write([]byte(refs))
+		w.Header().Set("Content-Type", fmt.Sprintf("application/x-git-%s-advertisement", rpc))
+		_, _ = w.Write(g.packetWrite("# service=git-" + rpc + "\n"))
+		_, _ = w.Write(g.packetFlush())
+
+		args := []string{rpc, "--stateless-rpc", "--advertise-refs", "."}
+		err = g.gitCommand(nil, w, dir, args...)
+		if err != nil {
+			return err
+		}
 	} else {
-		g.updateServerInfo(dir)
-		g.hdrNocache(w)
-		log.Printf("can't access %s %s\n", dir, serviceName)
+		// g.updateServerInfo(dir)
+		// g.hdrNocache(w)
+		log.Printf("can't access %s %s\n", dir, rpc)
 	}
 	return nil
 }
@@ -285,8 +268,11 @@ func (g *GitHttpServer) hasAccess(r *http.Request, dir string, rpc string, check
 	return g.getConfigSetting(rpc, dir)
 }
 
-func (g *GitHttpServer) getServiceType(r *http.Request) string {
-	serviceType := r.FormValue("service")
+func (g *GitHttpServer) getServiceType(c *gin.Context) string {
+	serviceType := c.Request.FormValue("service")
+	if len(serviceType) == 0 {
+		serviceType = c.Param("rpc")
+	}
 
 	if s := strings.HasPrefix(serviceType, "git-"); !s {
 		return ""
@@ -309,24 +295,35 @@ func (g *GitHttpServer) getConfigSetting(serviceName string, dir string) bool {
 }
 
 func (g *GitHttpServer) getGitConfig(configName string, dir string) (string, error) {
-	args := []string{"config", configName}
-	out, err := g.gitCommand(dir, args...)
-	if err != nil {
-		return "", err
-	}
-	return out, nil
+	var args = []string{"config", configName}
+	var out strings.Builder
+	err := g.gitCommand(nil, &out, dir, args...)
+	return out.String(), errors.WithStack(err)
 }
 
 func (g *GitHttpServer) updateServerInfo(dir string) (string, error) {
-	args := []string{"update-server-info"}
-	return g.gitCommand(dir, args...)
+	var args = []string{"update-server-info"}
+	var out strings.Builder
+	err := g.gitCommand(nil, &out, dir, args...)
+	return out.String(), errors.WithStack(err)
 }
 
-func (g *GitHttpServer) gitCommand(dir string, args ...string) (string, error) {
-	cmd := exec.Command(g.gitBinPath, args...)
-	cmd.Dir = dir
-	out, err := cmd.Output()
-	return string(out), errors.WithStack(err)
+func (g *GitHttpServer) gitCommand(in io.Reader, out io.Writer, repoDir string, args ...string) error {
+	// deadline
+	cmdCtx, cancel := context.WithTimeout(context.Background(), g.deadline)
+	defer cancel()
+
+	cmd := exec.CommandContext(cmdCtx, g.gitBinPath, args...)
+	cmd.Dir = repoDir
+	if in != nil {
+		cmd.Stdin = in
+	}
+	if out != nil {
+		cmd.Stdout = out
+	}
+	cmd.Stderr = gin.DefaultErrorWriter
+	err := cmd.Run()
+	return errors.WithStack(err)
 }
 
 func (g *GitHttpServer) hdrNocache(w http.ResponseWriter) {

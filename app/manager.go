@@ -67,12 +67,10 @@ func (m *Manager) Run() {
 func (m *Manager) ServerHandler(ctx *common.Context) *MiddlewareResult {
 	if m.entry != nil {
 		result := m.entry.Enter(ctx)
-		if result.LastErr() != nil {
-			return &MiddlewareResult{
-				HttpCode:    result.HttpStatus(),
-				HttpMessage: result.HttpStatusMessage(),
-				Err:         result.LastErr(),
-			}
+		return &MiddlewareResult{
+			HttpCode:    result.Status(),
+			HttpMessage: result.Message(),
+			Err:         result.LastErr(),
 		}
 	}
 	return nil

@@ -2,10 +2,13 @@ package middleware
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/growerlab/mensa/app/common"
 )
+
+const BannerMessage = "\n----- Power by GrowerLab.net -----"
 
 type MiddlewareError string
 
@@ -14,20 +17,25 @@ func (m MiddlewareError) Error() string {
 }
 
 type HandleResult struct {
-	status       int
-	lastErrorMsg strings.Builder
-	lastError    error
+	status     int // http status
+	lastError  error
+	gitMessage strings.Builder
 }
 
-func (h *HandleResult) HttpStatus() int {
+func (h *HandleResult) Status() int {
 	return h.status
 }
 
 // 当进入失败时，应返回http错误的信息
-func (h *HandleResult) HttpStatusMessage() string {
-	h.lastErrorMsg.WriteString(fmt.Sprintf("\n%d", h.status))
-	h.lastErrorMsg.WriteString("\n----- Power by GrowerLab.net -----")
-	return h.lastErrorMsg.String()
+func (h *HandleResult) Message() string {
+	if h.status > http.StatusCreated {
+		h.gitMessage.WriteString(fmt.Sprintf("\n%d", h.status))
+	}
+	if h.lastError != nil {
+		h.gitMessage.WriteString(h.lastError.Error())
+	}
+	h.gitMessage.WriteString(BannerMessage)
+	return h.gitMessage.String()
 }
 
 // 错误码
@@ -51,7 +59,7 @@ func (m *Middleware) Run(ctx *common.Context) *HandleResult {
 	for _, fn := range m.funcs {
 		statusCode, appendText, err := fn(ctx)
 		if len(appendText) > 0 {
-			result.lastErrorMsg.WriteString(appendText)
+			result.gitMessage.WriteString(appendText)
 		}
 		result.status = statusCode
 		if err != nil {
