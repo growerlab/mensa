@@ -171,13 +171,8 @@ func (g *GitHttpServer) runMiddlewares(ctx *requestContext) error {
 	}
 
 	if result.Err != nil {
-		_, _ = ctx.w.Write([]byte(result.HttpMessage))
 		log.Printf("[http] middleware err: %+v \nresult:%d %s\n", result.Err, result.HttpCode, result.HttpMessage)
 	}
-
-	// if !commonCtx.IsReadAction() {
-	// 	 _, _ = ctx.w.Write([]byte(middleware.BannerMessage))
-	// }
 	return result.Err
 }
 
