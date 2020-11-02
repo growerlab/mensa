@@ -158,16 +158,11 @@ func (g *GitHttpServer) Shutdown() error {
 	return g.server.Shutdown(ctx)
 }
 
-func (g *GitHttpServer) runMiddlewares(ctx *requestContext) error {
-	commonCtx, err := common.BuildContextFromHTTP(ctx.w, ctx.r)
-	if err != nil {
-		return errors.WithStack(err)
-	}
-
-	result := g.MiddlewareHandler(commonCtx)
+func (g *GitHttpServer) runMiddlewares(ctx *common.Context) error {
+	result := g.MiddlewareHandler(ctx)
 	if result.HttpCode > http.StatusCreated {
-		ctx.w.WriteHeader(result.HttpCode)
-		ctx.w.Header().Set("WWW-Authenticate", "Basic") // fmt.Sprintf("Basic realm=%s charset=UTF-8"))
+		ctx.Resp.WriteHeader(result.HttpCode)
+		ctx.Resp.Header().Set("WWW-Authenticate", "Basic") // fmt.Sprintf("Basic realm=%s charset=UTF-8"))
 	}
 
 	if result.Err != nil {
@@ -182,6 +177,11 @@ func (g *GitHttpServer) serviceRpc(ctx *requestContext) error {
 	var body = r.Body
 	defer body.Close()
 
+	commonCtx, err := common.BuildContextFromHTTP(ctx.w, ctx.r)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
 	w.Header().Set("Content-Type", fmt.Sprintf("application/x-git-%s-result", rpc))
 
 	if r.Header.Get("Content-Encoding") == "gzip" {
@@ -189,7 +189,7 @@ func (g *GitHttpServer) serviceRpc(ctx *requestContext) error {
 	}
 
 	args := []string{rpc, "--stateless-rpc", dir}
-	err := gitCommand(body, w, dir, args...)
+	err = gitCommand(body, w, dir, args, commonCtx.Env())
 	return errors.WithStack(err)
 }
 
@@ -198,7 +198,11 @@ func (g *GitHttpServer) getInfoRefs(ctx *requestContext) error {
 
 	access := g.hasAccess(r, dir, rpc, false)
 	if access {
-		err := g.runMiddlewares(ctx)
+		commonCtx, err := common.BuildContextFromHTTP(ctx.w, ctx.r)
+		if err != nil {
+			return errors.WithStack(err)
+		}
+		err = g.runMiddlewares(commonCtx)
 		if err != nil {
 			return err
 		}
@@ -209,7 +213,7 @@ func (g *GitHttpServer) getInfoRefs(ctx *requestContext) error {
 		_, _ = w.Write(g.packetFlush())
 
 		args := []string{rpc, "--stateless-rpc", "--advertise-refs", "."}
-		err = gitCommand(nil, w, dir, args...)
+		err = gitCommand(nil, w, dir, args, commonCtx.Env())
 		if err != nil {
 			return err
 		}
@@ -285,16 +289,16 @@ func (g *GitHttpServer) getConfigSetting(serviceName string, dir string) bool {
 func (g *GitHttpServer) getGitConfig(configName string, dir string) (string, error) {
 	var args = []string{"config", configName}
 	var out strings.Builder
-	err := gitCommand(nil, &out, dir, args...)
+	err := gitCommand(nil, &out, dir, args, nil)
 	return out.String(), errors.WithStack(err)
 }
 
-func (g *GitHttpServer) updateServerInfo(dir string) (string, error) {
-	var args = []string{"update-server-info"}
-	var out strings.Builder
-	err := gitCommand(nil, &out, dir, args...)
-	return out.String(), errors.WithStack(err)
-}
+// func (g *GitHttpServer) updateServerInfo(dir string) (string, error) {
+// 	var args = []string{"update-server-info"}
+// 	var out strings.Builder
+// 	err := gitCommand(nil, &out, dir, args)
+// 	return out.String(), errors.WithStack(err)
+// }
 
 func (g *GitHttpServer) hdrNocache(w http.ResponseWriter) {
 	w.Header().Set("Expires", "Fri, 01 Jan 1980 00:00:00 GMT")

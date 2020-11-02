@@ -91,7 +91,7 @@ func (g *GitSSHServer) sessionHandler(session ssh.Session) {
 
 	args := []string{service, ctx.RepoDir}
 
-	err = gitCommand(session, session, ctx.RepoDir, args...)
+	err = gitCommand(session, session, ctx.RepoDir, args, ctx.Env())
 	if err != nil {
 		log.Printf("[ssh] git was err on running: %v\n", err)
 	}

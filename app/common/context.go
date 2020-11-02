@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -24,12 +25,12 @@ const (
 type Action string
 
 const (
-	ActionTypeRead  Action = "READ"
-	ActionTypeWrite Action = "WRITE"
+	ActionTypePull Action = "PULL"
+	ActionTypePush Action = "PUSH"
 )
 
-func (a Action) IsRead() bool {
-	return a == ActionTypeRead
+func (a Action) IsPull() bool {
+	return a == ActionTypePull
 }
 
 // 操作者
@@ -64,7 +65,7 @@ func (o *Operator) IsEmptyUser() bool {
 type Context struct {
 	// push、pull
 	ActionType Action
-	// 推送类型（http[s]、ssh、git）
+	// 推送方式（http[s]、ssh、git）
 	Type ProtType
 	// ssh: 原始commands
 	RawCommands []string
@@ -90,8 +91,22 @@ type Context struct {
 	Req  *http.Request
 }
 
+func (c *Context) Env() map[string]string {
+	result := make(map[string]string)
+	result[GROWERLAB_REPO_OWNER] = c.RepoOwner           // 仓库所有者
+	result[GROWERLAB_REPO_NAME] = c.RepoName             // 仓库名称
+	result[GROWERLAB_REPO_ACTION] = string(c.ActionType) // 操作类型（pull or push）
+	result[GROWERLAB_REPO_PROT_TYPE] = string(c.Type)    // 推送方式
+	if c.Type == ProtTypeHTTP && c.Operator != nil {
+		result[GROWERLAB_REPO_OPERATOR] = c.Operator.HttpUser.Username() // 操作者
+	} else if c.Type == ProtTypeSSH && c.Operator != nil {
+		result[GROWERLAB_REPO_OPERATOR] = string(c.Operator.SSHPublicKey.Marshal())
+	}
+	return result
+}
+
 func (c *Context) IsReadAction() bool {
-	return c.ActionType.IsRead()
+	return c.ActionType.IsPull()
 }
 
 func (c *Context) Desc() string {
@@ -114,9 +129,16 @@ func BuildContextFromHTTP(w http.ResponseWriter, r *http.Request) (*Context, err
 		return nil, err
 	}
 
-	actionType := ActionTypeWrite
-	if uri.Query().Get("service") == "git-upload-pack" {
-		actionType = ActionTypeRead
+	actionType := ActionTypePush
+	service := uri.Query().Get("service")
+	if service == "" {
+		_, service = path.Split(uri.Path)
+	}
+	if service == "" {
+		return nil, errors.New("invalid service")
+	}
+	if service == "git-upload-pack" {
+		actionType = ActionTypePull
 	}
 
 	var operator *Operator = nil
@@ -153,9 +175,9 @@ func BuildContextFromSSH(session ssh.Session) (*Context, error) {
 		return nil, err
 	}
 
-	actionType := ActionTypeWrite
+	actionType := ActionTypePush
 	if commands[0] == "git-upload-pack" {
-		actionType = ActionTypeRead
+		actionType = ActionTypePull
 	}
 
 	return &Context{
