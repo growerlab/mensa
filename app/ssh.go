@@ -90,6 +90,11 @@ func (g *GitSSHServer) sessionHandler(session ssh.Session) {
 	}
 
 	args := []string{service, ctx.RepoDir}
+	if service == ReceivePack {
+		for _, op := range GitReceivePackOptions {
+			args = append(args, op.Name, op.Args)
+		}
+	}
 
 	err = gitCommand(session, session, ctx.RepoDir, args, ctx.Env())
 	if err != nil {

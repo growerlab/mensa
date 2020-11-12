@@ -189,6 +189,12 @@ func (g *GitHttpServer) serviceRpc(ctx *requestContext) error {
 	}
 
 	args := []string{rpc, "--stateless-rpc", dir}
+	if rpc == ReceivePack {
+		for _, op := range GitReceivePackOptions {
+			args = append(args, op.Name, op.Args)
+		}
+	}
+
 	err = gitCommand(body, w, dir, args, commonCtx.Env())
 	return errors.WithStack(err)
 }

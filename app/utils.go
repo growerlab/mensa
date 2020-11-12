@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -12,7 +14,19 @@ import (
 	"github.com/pkg/errors"
 )
 
+type Option struct {
+	Name string
+	Args string
+}
+
+var GitReceivePackOptions = []*Option{
+	{"-c", fmt.Sprintf("core.hooksPath=%s", filepath.Join(os.Args[0], "hooks"))},
+	{"-c", "core.alternateRefsCommand=exit 0 #"},
+	{"-c", "receive.fsck.badTimezone=ignore"},
+}
+
 func gitCommand(in io.Reader, out io.Writer, repoDir string, args []string, envSet map[string]string) error {
+
 	gitBinPath := conf.GetConfig().GitPath
 	deadline := time.Duration(conf.GetConfig().Deadline) * time.Second
 
