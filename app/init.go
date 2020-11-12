@@ -42,6 +42,7 @@ func Run() {
 
 	// 初始化管理器
 	manager = NewManager(entry)
+	manager.RegisterServer(NewSvcServer(conf.GetConfig()))
 	manager.RegisterServer(NewGitHttpServer(conf.GetConfig()))
 	manager.RegisterServer(NewGitSSHServer(conf.GetConfig()))
 	manager.Run()

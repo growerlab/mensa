@@ -37,6 +37,7 @@ type Config struct {
 	GitRepoDir  string `yaml:"git_repo_dir"`
 	DBUrl       string `yaml:"db_url"`
 	Redis       *Redis `yaml:"redis"`
+	SvcAddr     string `yaml:"svc_addr"`
 }
 
 func (c *Config) validate() error {
