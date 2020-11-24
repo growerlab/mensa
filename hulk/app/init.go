@@ -11,6 +11,8 @@ func init() {
 	ErrPanic(InitConfig())
 	ErrPanic(InitRedis())
 
-	app = &App{}
+	app = &App{
+		dispatcher: &EventDispatch{},
+	}
 	app.RegisterHook(&HookEvent{})
 }

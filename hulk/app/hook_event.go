@@ -28,7 +28,7 @@ func (h *HookEvent) Priority() uint {
 	return math.MaxUint32
 }
 
-func (h *HookEvent) Process(sess *PushSession) error {
+func (h *HookEvent) Process(dispatcher EventDispatcher, sess *PushSession) error {
 	var repository = repo.NewRepository(sess.RepoDir)
 	var event *PushEvent
 	var err error
@@ -45,13 +45,7 @@ func (h *HookEvent) Process(sess *PushSession) error {
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	return h.push(event)
-}
-
-// 将event推送给redis的stream
-// TODO backend项目响应这个事件
-func (h *HookEvent) push(event *PushEvent) error {
-	return nil
+	return dispatcher.Dispatch(event)
 }
 
 func (h *HookEvent) buildCommitEvent(repository *repo.Repository, sess *PushSession) (*PushEvent, error) {
@@ -60,11 +54,17 @@ func (h *HookEvent) buildCommitEvent(repository *repo.Repository, sess *PushSess
 		return nil, err
 	}
 
+	plainCommits := repo.BuildPlainCommits(commits...)
+	message, err := plainCommits.ToString()
+	if err != nil {
+		return nil, err
+	}
+
 	return &PushEvent{
 		PushSession: sess,
 		CommitCount: len(commits),
 		RefCount:    1,
-		Message:     "",
+		Message:     message,
 	}, nil
 }
 

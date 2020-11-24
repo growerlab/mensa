@@ -9,13 +9,14 @@ import (
 var app *App
 
 type Hook interface {
-	Label() string                   // 钩子名称
-	Priority() uint                  // 钩子优先级,数字越小越先执行
-	Process(sess *PushSession) error // 执行钩子
+	Label() string                                               // 钩子名称
+	Priority() uint                                              // 钩子优先级,数字越小越先执行
+	Process(dispatcher EventDispatcher, sess *PushSession) error // 执行钩子
 }
 
 type App struct {
-	hooks []Hook
+	dispatcher EventDispatcher
+	hooks      []Hook
 }
 
 func (a *App) RegisterHook(hooks ...Hook) {
@@ -32,7 +33,7 @@ func (a *App) Run(sess *PushSession) error {
 	a.sortHooks()
 
 	for _, hook := range a.hooks {
-		if err := hook.Process(sess); err != nil {
+		if err := hook.Process(a.dispatcher, sess); err != nil {
 			return err
 		}
 	}
