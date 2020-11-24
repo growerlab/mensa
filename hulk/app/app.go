@@ -22,14 +22,14 @@ func (a *App) RegisterHook(hooks ...Hook) {
 	a.hooks = append(a.hooks, hooks...)
 }
 
-func (a *App) sortHooksByPriority() {
+func (a *App) sortHooks() {
 	sort.Slice(a.hooks, func(i, j int) bool {
 		return a.hooks[i].Priority() < a.hooks[j].Priority()
 	})
 }
 
 func (a *App) Run(sess *PushSession) error {
-	a.sortHooksByPriority()
+	a.sortHooks()
 
 	for _, hook := range a.hooks {
 		if err := hook.Process(sess); err != nil {
