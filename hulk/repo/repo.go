@@ -30,6 +30,7 @@ func NewRepository(repoPath string) *Repository {
 	}
 }
 
+//
 // maxLimit = 0 then no limit
 func (r *Repository) BetweenCommits(before, after string, maxLimit uint) ([]*object.Commit, error) {
 	beforeHash := plumbing.NewHash(before)
