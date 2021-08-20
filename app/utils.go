@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/growerlab/mensa/app/conf"
 	"github.com/pkg/errors"
 )
@@ -48,7 +47,7 @@ func gitCommand(in io.Reader, out io.Writer, repoDir string, args []string, envS
 	if out != nil {
 		cmd.Stdout = out
 	}
-	cmd.Stderr = gin.DefaultErrorWriter
+	cmd.Stderr = out
 	err := cmd.Run()
 	return errors.WithStack(err)
 }
