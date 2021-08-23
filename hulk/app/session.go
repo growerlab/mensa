@@ -98,7 +98,7 @@ func (r *PushSession) prepare() error {
 	return nil
 }
 
-func Context() *PushSession {
+func Session() *PushSession {
 	pwd, err := os.Getwd()
 	if err != nil {
 		ErrPanic(err)

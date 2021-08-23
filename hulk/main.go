@@ -20,7 +20,7 @@ func main() {
 		}
 	}()
 
-	ctx := app.Context()
+	ctx := app.Session()
 	if err := app.Run(ctx); err != nil {
 		log.Println(err)
 		os.Exit(1)
