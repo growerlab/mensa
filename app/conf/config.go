@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/growerlab/backend/app/utils/conf"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 )
@@ -17,13 +18,8 @@ var envConfig map[string]*Config
 var config *Config
 
 type Redis struct {
-	Host                string `yaml:"host"`
-	Port                int    `yaml:"port"`
-	MaxIdle             int    `yaml:"max_idle"`
-	MaxActive           int    `yaml:"max_active"`
-	IdleTimeout         int    `yaml:"idle_timeout"`
-	Namespace           string `yaml:"namespace"`
-	PermissionNamespace string `yaml:"permission_namespace,omitempty"`
+	conf.Redis
+	PermissionNamespace string `yaml:"permission_namespace"`
 }
 
 type Config struct {

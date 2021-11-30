@@ -4,7 +4,6 @@ package db
 
 import (
 	"github.com/growerlab/backend/app/model/db"
-	"github.com/growerlab/backend/app/utils/conf"
 	selfConf "github.com/growerlab/mensa/app/conf"
 )
 
@@ -12,25 +11,19 @@ var MemDB *db.MemDBClient
 var PermissionDB *db.MemDBClient
 
 func InitMemDB() (err error) {
-	c := selfConf.GetConfig().Redis
+	cfg := selfConf.GetConfig()
+	redisConf := cfg.Redis
+	defaultRedisConf := redisConf.Redis
 
-	redisConf := &conf.Redis{
-		Host:        c.Host,
-		Port:        c.Port,
-		Namespace:   c.Namespace,
-		MaxIdle:     c.MaxIdle,
-		MaxActive:   c.MaxActive,
-		IdleTimeout: c.IdleTimeout,
-	}
+	permissionRedisConf := redisConf.Redis
+	permissionRedisConf.Namespace = redisConf.PermissionNamespace
 
-	MemDB, err = db.DoInitMemDB(redisConf, 0)
+	MemDB, err = db.DoInitMemDB(&defaultRedisConf, 0)
 	if err != nil {
 		return err
 	}
 
-	redisConf.Namespace = c.PermissionNamespace
-
-	PermissionDB, err = db.DoInitMemDB(redisConf, 0)
+	PermissionDB, err = db.DoInitMemDB(&permissionRedisConf, 0)
 	if err != nil {
 		return err
 	}
