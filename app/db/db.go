@@ -1,8 +1,6 @@
 package db
 
 import (
-	_ "github.com/jackc/pgx/v4/stdlib"
-
 	"github.com/growerlab/backend/app/model/db"
 	"github.com/growerlab/mensa/app/conf"
 )

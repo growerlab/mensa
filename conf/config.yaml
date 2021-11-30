@@ -7,7 +7,7 @@ default: &base
   idle_timeout: 180
   git_path: /usr/bin/git
   git_repo_dir: /data/repositories # repos base dir
-  db_url: postgresql://growerlab:growerlab@127.0.0.1:5432/growerlab?sslmode=disable
+  db_url: growerlab:growerlab@tcp(127.0.0.1:3306)/growerlab
   redis:
     host: 127.0.0.1
     port: 6379
