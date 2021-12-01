@@ -244,6 +244,8 @@ func (g *GitHttpServer) packetWrite(str string) []byte {
 	return []byte(s + str)
 }
 
+// hasAccess 是否有访问权限
+// 这里之后可能要改成从数据库、权限验证中心来确认
 func (g *GitHttpServer) hasAccess(r *http.Request, dir string, rpc string, checkContentType bool) bool {
 	if checkContentType {
 		if r.Header.Get("Content-Type") != fmt.Sprintf("application/x-git-%s-request", rpc) {
@@ -263,7 +265,7 @@ func (g *GitHttpServer) hasAccess(r *http.Request, dir string, rpc string, check
 		return true
 	}
 
-	return g.getConfigSetting(rpc, dir)
+	return true
 }
 
 func (g *GitHttpServer) getServiceType(c *gin.Context) string {
@@ -276,20 +278,6 @@ func (g *GitHttpServer) getServiceType(c *gin.Context) string {
 		return ""
 	}
 	return strings.Replace(serviceType, "git-", "", 1)
-}
-
-func (g *GitHttpServer) getConfigSetting(serviceName string, dir string) bool {
-	serviceName = strings.Replace(serviceName, "-", "", -1)
-	setting, err := g.getGitConfig("http."+serviceName, dir)
-	if err != nil {
-		log.Printf("get git config was err: %v", err)
-		return false
-	}
-
-	if serviceName == UploadPack {
-		return setting != "false"
-	}
-	return setting == "true"
 }
 
 func (g *GitHttpServer) getGitConfig(configName string, dir string) (string, error) {

@@ -23,17 +23,17 @@ type Redis struct {
 }
 
 type Config struct {
-	Debug       bool   `yaml:"-"`
-	User        string `yaml:"user"`
-	Listen      string `yaml:"listen"`
-	HttpListen  string `yaml:"http_listen"`
-	GitPath     string `yaml:"git_path"`
-	Deadline    int64  `yaml:"deadline"`
-	IdleTimeout int64  `yaml:"idle_timeout"`
-	GitRepoDir  string `yaml:"git_repo_dir"`
-	DBUrl       string `yaml:"db_url"`
-	Redis       *Redis `yaml:"redis"`
-	SvcAddr     string `yaml:"svc_addr"`
+	Debug         bool   `yaml:"-"`
+	User          string `yaml:"user"`
+	Listen        string `yaml:"listen"`
+	HttpListen    string `yaml:"http_listen"`
+	GitPath       string `yaml:"git_path"`
+	Deadline      int64  `yaml:"deadline"`
+	IdleTimeout   int64  `yaml:"idle_timeout"`
+	GitRepoDir    string `yaml:"git_repo_dir"`
+	DBUrl         string `yaml:"db_url"`
+	Redis         *Redis `yaml:"redis"`
+	GoGitGrpcAddr string `yaml:"go_git_grpc_addr"`
 }
 
 func (c *Config) validate() error {

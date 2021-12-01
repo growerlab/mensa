@@ -2,7 +2,7 @@ default: &base
   user: git
   listen: 0.0.0.0:22
   http_listen: 0.0.0.0:8080
-  svc_addr: 0.0.0.0:9000
+  go_git_grpc_addr: 0.0.0.0:9000
   deadline: 3600
   idle_timeout: 180
   git_path: /usr/bin/git

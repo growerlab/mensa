@@ -91,16 +91,21 @@ type Context struct {
 	Req  *http.Request
 }
 
-func (c *Context) Env() map[string]string {
-	result := make(map[string]string)
-	result[GROWERLAB_REPO_OWNER] = c.RepoOwner           // 仓库所有者
-	result[GROWERLAB_REPO_NAME] = c.RepoName             // 仓库名称
-	result[GROWERLAB_REPO_ACTION] = string(c.ActionType) // 操作类型（pull or push）
-	result[GROWERLAB_REPO_PROT_TYPE] = string(c.Type)    // 推送方式
+func (c *Context) Env() []string {
+	envSet := make(map[string]string)
+	envSet[GROWERLAB_REPO_OWNER] = c.RepoOwner           // 仓库所有者
+	envSet[GROWERLAB_REPO_NAME] = c.RepoName             // 仓库名称
+	envSet[GROWERLAB_REPO_ACTION] = string(c.ActionType) // 操作类型（pull or push）
+	envSet[GROWERLAB_REPO_PROT_TYPE] = string(c.Type)    // 推送方式
 	if c.Type == ProtTypeHTTP && c.Operator != nil {
-		result[GROWERLAB_REPO_OPERATOR] = c.Operator.HttpUser.Username() // 操作者
+		envSet[GROWERLAB_REPO_OPERATOR] = c.Operator.HttpUser.Username() // 操作者
 	} else if c.Type == ProtTypeSSH && c.Operator != nil {
-		result[GROWERLAB_REPO_OPERATOR] = string(c.Operator.SSHPublicKey.Marshal())
+		envSet[GROWERLAB_REPO_OPERATOR] = string(c.Operator.SSHPublicKey.Marshal())
+	}
+
+	result := make([]string, 0, len(envSet))
+	for k, v := range envSet {
+		result = append(result, fmt.Sprintf("%s=%s", k, v))
 	}
 	return result
 }

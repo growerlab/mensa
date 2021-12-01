@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"time"
 
+	gggrpc "github.com/growerlab/go-git-grpc"
+	"github.com/growerlab/go-git-grpc/server/git"
 	"github.com/growerlab/mensa/app/conf"
 	"github.com/pkg/errors"
 )
@@ -24,30 +25,29 @@ var GitReceivePackOptions = []*Option{
 	{"-c", "receive.fsck.badTimezone=ignore"},
 }
 
-func gitCommand(in io.Reader, out io.Writer, repoDir string, args []string, envSet map[string]string) error {
-
+func gitCommand(in io.Reader, out io.Writer, repoDir string, args []string, envs []string) error {
 	gitBinPath := conf.GetConfig().GitPath
 	deadline := time.Duration(conf.GetConfig().Deadline) * time.Second
+	gogitgrpcAddr := conf.GetConfig().GoGitGrpcAddr
 
 	// deadline
 	cmdCtx, cancel := context.WithTimeout(context.Background(), deadline)
 	defer cancel()
 
-	cmd := exec.CommandContext(cmdCtx, gitBinPath, args...)
-	if len(envSet) > 0 {
-		cmd.Env = make([]string, 0, len(envSet))
-		for k, v := range envSet {
-			cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
-		}
+	gitDoor, doorWatcher, err := gggrpc.NewDoorClient(cmdCtx, gogitgrpcAddr)
+	if err != nil {
+		return errors.WithStack(err)
 	}
-	cmd.Dir = repoDir
-	if in != nil {
-		cmd.Stdin = in
-	}
-	if out != nil {
-		cmd.Stdout = out
-	}
-	cmd.Stderr = out
-	err := cmd.Run()
+	defer doorWatcher.Close()
+
+	err = gitDoor.RunGit(&git.Context{
+		Env:      envs,
+		GitBin:   gitBinPath,
+		Args:     args,
+		In:       in,
+		Out:      out,
+		RepoPath: repoDir,
+		Deadline: deadline,
+	})
 	return errors.WithStack(err)
 }
