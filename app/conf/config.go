@@ -18,7 +18,7 @@ var envConfig map[string]*Config
 var config *Config
 
 type Redis struct {
-	conf.Redis
+	conf.Redis          `yaml:",inline"`
 	PermissionNamespace string `yaml:"permission_namespace"`
 }
 
@@ -43,14 +43,11 @@ func (c *Config) validate() error {
 	if !strings.Contains(c.Listen, ":") || !strings.Contains(c.HttpListen, ":") {
 		return errors.New("listen addr is invalid")
 	}
-	// for _, k := range c.HostKeys {
-	// 	if _, err := os.Stat(k); os.IsNotExist(err) {
-	// 		return errors.WithMessage(err, "host keys")
-	// 	}
-	// }
+
 	if _, err := os.Stat(c.GitPath); os.IsNotExist(err) {
 		return errors.WithMessage(err, "git path")
 	}
+
 	if _, err := os.Stat(c.GitRepoDir); os.IsNotExist(err) {
 		return errors.WithMessage(err, "git repo dir")
 	}
@@ -63,7 +60,8 @@ func LoadConfig() error {
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	err = yaml.Unmarshal(rawConfig, &envConfig)
+
+	err = yaml.UnmarshalStrict(rawConfig, &envConfig)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -78,12 +76,12 @@ func LoadConfig() error {
 	}
 
 	if env == DefaultENV {
+		// for dev
 		config.Debug = true
-	}
-
-	// for dev
-	if !strings.HasPrefix(config.GitRepoDir, "/") && env == DefaultENV {
-		config.GitRepoDir = filepath.Join(os.Getenv("GOPATH"), "src", "github.com/growerlab/mensa", config.GitRepoDir)
+		config.GitRepoDir, err = filepath.Abs(config.GitRepoDir)
+		if err != nil {
+			return errors.WithStack(err)
+		}
 	}
 	return config.validate()
 }

@@ -188,7 +188,7 @@ func (g *GitHttpServer) serviceRpc(ctx *requestContext) error {
 		body, _ = gzip.NewReader(r.Body)
 	}
 
-	args := []string{rpc, "--stateless-rpc", dir}
+	args := []string{rpc, "--stateless-rpc", "."}
 	if rpc == ReceivePack {
 		for _, op := range GitReceivePackOptions {
 			args = append(args, op.Name, op.Args)
@@ -219,7 +219,7 @@ func (g *GitHttpServer) getInfoRefs(ctx *requestContext) error {
 		_, _ = w.Write(g.packetFlush())
 
 		args := []string{rpc, "--stateless-rpc", "--advertise-refs", "."}
-		err = gitCommand(nil, w, dir, args, commonCtx.Env())
+		err = gitCommand(r.Body, w, dir, args, commonCtx.Env())
 		if err != nil {
 			return err
 		}

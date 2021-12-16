@@ -2,7 +2,7 @@ default: &base
   user: git
   listen: 0.0.0.0:22
   http_listen: 0.0.0.0:8080
-  go_git_grpc_addr: 0.0.0.0:9000
+  go_git_grpc_addr: 0.0.0.0:9001
   deadline: 3600
   idle_timeout: 180
   git_path: /usr/bin/git
@@ -20,10 +20,13 @@ default: &base
 production:
   <<: *base
 
+test:
+  <<: *base
+
 dev:
   <<: *base
   user: moli
   listen: 0.0.0.0:8022
   http_listen: 0.0.0.0:8080
   git_repo_dir: test/repos
-  host_keys: []
+  db_url: growerlab:growerlab@tcp(127.0.0.1:30306)/growerlab

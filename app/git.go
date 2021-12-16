@@ -49,5 +49,5 @@ func gitCommand(in io.Reader, out io.Writer, repoDir string, args []string, envs
 		RepoPath: repoDir,
 		Deadline: deadline,
 	})
-	return errors.WithStack(err)
+	return err
 }
