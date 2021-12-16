@@ -172,7 +172,7 @@ func (g *GitHttpServer) runMiddlewares(ctx *common.Context) error {
 }
 
 func (g *GitHttpServer) serviceRpc(ctx *requestContext) error {
-	w, r, rpc, dir := ctx.w, ctx.r, ctx.Rpc, ctx.Dir
+	var w, r, rpc, dir = ctx.w, ctx.r, ctx.Rpc, ctx.Dir
 
 	var body = r.Body
 	defer body.Close()
@@ -196,6 +196,16 @@ func (g *GitHttpServer) serviceRpc(ctx *requestContext) error {
 	}
 
 	err = gitCommand(body, w, dir, args, commonCtx.Env())
+	if err != nil {
+		log.Printf("git command err: %+v\n", err)
+		return err
+	}
+
+	// 当有修改仓库时，更新仓库
+	if rpc == ReceivePack {
+		err = gitCommand(nil, nil, dir, []string{"--git-dir", dir, "update-server-info"}, commonCtx.Env())
+	}
+
 	return errors.WithStack(err)
 }
 
