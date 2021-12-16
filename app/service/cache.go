@@ -4,7 +4,6 @@ import (
 	"github.com/go-redis/redis/v7"
 	"github.com/growerlab/backend/app/common/errors"
 	"github.com/growerlab/backend/app/model/db"
-
 	selfDB "github.com/growerlab/mensa/app/db"
 )
 
