@@ -16,6 +16,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+const BannerMessage = "----- Power by GrowerLab.net -----"
+
 func NewGitHttpServer(cfg *conf.Config) *GitHttpServer {
 	deadline := DefaultDeadline * time.Second
 	idleTimeout := DefaultIdleTimeout * time.Second
@@ -37,7 +39,7 @@ func NewGitHttpServer(cfg *conf.Config) *GitHttpServer {
 	engine := gin.Default()
 	engine.Use(server.handlerBuildRequestContext)
 	engine.GET("/:path/:repo_name/info/refs", server.handlerGetInfoRefs)
-	engine.POST("/:path/:repo_name/:rpc", server.handlerGitPack)
+	engine.POST("/:path/:repo_name/:rpc", server.handlerGitRPC)
 
 	server.server = &http.Server{
 		Handler:      engine,
@@ -69,7 +71,7 @@ type GitHttpServer struct {
 	// 限制最大时间
 	idleTimeout time.Duration
 
-	MiddlewareHandler MiddlewareHandler
+	middlewareHandler MiddlewareHandler
 }
 
 func (g *GitHttpServer) ListenAndServe(handler MiddlewareHandler) error {
@@ -79,7 +81,7 @@ func (g *GitHttpServer) ListenAndServe(handler MiddlewareHandler) error {
 		return err
 	}
 
-	g.MiddlewareHandler = handler
+	g.middlewareHandler = handler
 
 	if err := g.server.ListenAndServe(); err != nil {
 		return errors.WithStack(err)
@@ -110,10 +112,10 @@ func (g *GitHttpServer) handlerBuildRequestContext(c *gin.Context) {
 	c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), "request_context", req))
 }
 
-func (g *GitHttpServer) handlerGitPack(c *gin.Context) {
+func (g *GitHttpServer) handlerGitRPC(c *gin.Context) {
 	reqContext, ok := c.Request.Context().Value("request_context").(*requestContext)
 	if !ok {
-		log.Println("handlerGitPack: 'request_context' must exist in context")
+		log.Println("handlerGitRPC: 'request_context' must exist in context")
 		c.AbortWithStatus(http.StatusServiceUnavailable)
 		return
 	}
@@ -159,7 +161,7 @@ func (g *GitHttpServer) Shutdown() error {
 }
 
 func (g *GitHttpServer) runMiddlewares(ctx *common.Context) error {
-	result := g.MiddlewareHandler(ctx)
+	result := g.middlewareHandler(ctx)
 	if result.HttpCode > http.StatusCreated {
 		ctx.Resp.WriteHeader(result.HttpCode)
 		ctx.Resp.Header().Set("WWW-Authenticate", "Basic") // fmt.Sprintf("Basic realm=%s charset=UTF-8"))
@@ -188,6 +190,9 @@ func (g *GitHttpServer) serviceRpc(ctx *requestContext) error {
 		body, _ = gzip.NewReader(r.Body)
 	}
 
+	// 输出到客户端的终端，之后这块应该要抽出来结构化
+	_, _ = w.Write(g.packetWrite(fmt.Sprintf("\x02 %s\n", BannerMessage)))
+
 	args := make([]string, 0)
 	if rpc == ReceivePack {
 		for _, op := range GitReceivePackOptions {
@@ -204,10 +209,7 @@ func (g *GitHttpServer) serviceRpc(ctx *requestContext) error {
 
 	// 当有修改仓库时，更新仓库
 	if rpc == ReceivePack {
-		err = gitCommand(nil, nil, dir, []string{"--git-dir", ".", "update-server-info"}, commonCtx.Env())
-		if err != nil {
-			log.Printf("git command 'update-server-info' err: %+v\n", err)
-		}
+		err = g.updateServerInfo(dir, commonCtx.Env())
 	}
 
 	return errors.WithStack(err)
@@ -238,8 +240,6 @@ func (g *GitHttpServer) getInfoRefs(ctx *requestContext) error {
 			return err
 		}
 	} else {
-		// g.updateServerInfo(dir)
-		// g.hdrNocache(w)
 		log.Printf("can't access %s %s\n", dir, rpc)
 	}
 	return nil
@@ -301,12 +301,13 @@ func (g *GitHttpServer) getGitConfig(configName string, dir string) (string, err
 	return out.String(), errors.WithStack(err)
 }
 
-// func (g *GitHttpServer) updateServerInfo(dir string) (string, error) {
-// 	var args = []string{"update-server-info"}
-// 	var out strings.Builder
-// 	err := gitCommand(nil, &out, dir, args)
-// 	return out.String(), errors.WithStack(err)
-// }
+func (g *GitHttpServer) updateServerInfo(dir string, envs []string) error {
+	err := gitCommand(nil, nil, dir, []string{"--git-dir", ".", "update-server-info"}, envs)
+	if err != nil {
+		log.Printf("git command 'update-server-info' err: %+v\n", err)
+	}
+	return err
+}
 
 func (g *GitHttpServer) hdrNocache(w http.ResponseWriter) {
 	w.Header().Set("Expires", "Fri, 01 Jan 1980 00:00:00 GMT")

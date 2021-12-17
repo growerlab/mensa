@@ -8,8 +8,6 @@ import (
 	"github.com/growerlab/mensa/app/common"
 )
 
-const BannerMessage = "\n----- Power by GrowerLab.net -----"
-
 type MiddlewareError string
 
 func (m MiddlewareError) Error() string {
@@ -34,7 +32,6 @@ func (h *HandleResult) Message() string {
 	if h.lastError != nil {
 		h.gitMessage.WriteString(h.lastError.Error())
 	}
-	h.gitMessage.WriteString(BannerMessage)
 	return h.gitMessage.String()
 }
 
@@ -53,7 +50,7 @@ func (m *Middleware) Add(fn HandleFunc) {
 	m.funcs = append(m.funcs, fn)
 }
 
-func (m *Middleware) Run(ctx *common.Context) *HandleResult {
+func (m *Middleware) run(ctx *common.Context) *HandleResult {
 	result := &HandleResult{}
 
 	for _, fn := range m.funcs {
@@ -71,5 +68,5 @@ func (m *Middleware) Run(ctx *common.Context) *HandleResult {
 }
 
 func (m *Middleware) Enter(ctx *common.Context) *HandleResult {
-	return m.Run(ctx)
+	return m.run(ctx)
 }
