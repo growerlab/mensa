@@ -188,12 +188,13 @@ func (g *GitHttpServer) serviceRpc(ctx *requestContext) error {
 		body, _ = gzip.NewReader(r.Body)
 	}
 
-	args := []string{rpc, "--stateless-rpc", "."}
+	args := make([]string, 0)
 	if rpc == ReceivePack {
 		for _, op := range GitReceivePackOptions {
 			args = append(args, op.Name, op.Args)
 		}
 	}
+	args = append(args, rpc, "--stateless-rpc", ".")
 
 	err = gitCommand(body, w, dir, args, commonCtx.Env())
 	if err != nil {
@@ -203,7 +204,10 @@ func (g *GitHttpServer) serviceRpc(ctx *requestContext) error {
 
 	// 当有修改仓库时，更新仓库
 	if rpc == ReceivePack {
-		err = gitCommand(nil, nil, dir, []string{"--git-dir", dir, "update-server-info"}, commonCtx.Env())
+		err = gitCommand(nil, nil, dir, []string{"--git-dir", ".", "update-server-info"}, commonCtx.Env())
+		if err != nil {
+			log.Printf("git command 'update-server-info' err: %+v\n", err)
+		}
 	}
 
 	return errors.WithStack(err)
