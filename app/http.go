@@ -190,8 +190,10 @@ func (g *GitHttpServer) serviceRpc(ctx *requestContext) error {
 		body, _ = gzip.NewReader(r.Body)
 	}
 
-	// 输出到客户端的终端，之后这块应该要抽出来结构化
-	_, _ = w.Write(g.packetWrite(fmt.Sprintf("\x02 %s\n", BannerMessage)))
+	// 客户端push：输出到客户端的终端，之后这块应该要抽出来结构化
+	if rpc == ReceivePack {
+		_, _ = w.Write(g.packetWrite(fmt.Sprintf("\x02 %s\n", BannerMessage)))
+	}
 
 	args := make([]string, 0)
 	if rpc == ReceivePack {
