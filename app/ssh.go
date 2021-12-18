@@ -102,7 +102,6 @@ func (g *GitSSHServer) sessionHandler(session ssh.Session) {
 	}
 
 	// 客户端push：输出到客户端的终端，之后这块应该要抽出来结构化
-
 	if rpc == ReceivePack {
 		writeSession.Append(packetWrite(fmt.Sprintf("\x02%s\n", BannerMessage)))
 	}
@@ -181,14 +180,12 @@ func (d *delayWriteSession) Append(s []byte) {
 }
 
 func (d *delayWriteSession) Write(p []byte) (int, error) {
-	if !d.delay {
-		if bytes.Index(p, []byte("000eunpack ok")) >= 0 {
-			_, err := d.session.Write(d.first.Bytes())
-			if err != nil {
-				return 0, err
-			}
-			d.delay = true
+	if !d.delay && bytes.Index(p, []byte("000eunpack ok")) >= 0 {
+		_, err := d.session.Write(d.first.Bytes())
+		if err != nil {
+			return 0, err
 		}
+		d.delay = true
 	}
 	return d.session.Write(p)
 }
