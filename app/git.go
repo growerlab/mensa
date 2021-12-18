@@ -40,6 +40,11 @@ func gitCommand(in io.Reader, out io.Writer, repoDir string, args []string, envs
 	}
 	defer doorWatcher.Close()
 
+	// for debug
+	// if out != nil {
+	// 	out = io.MultiWriter(os.Stdout, out)
+	// }
+
 	err = gitDoor.RunGit(&git.Context{
 		Env:      envs,
 		GitBin:   gitBinPath,

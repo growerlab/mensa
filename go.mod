@@ -15,7 +15,7 @@ require (
 	github.com/google/uuid v1.1.2 // indirect
 	github.com/graphql-go/graphql v0.7.9 // indirect
 	github.com/growerlab/backend v0.0.0-20211130144221-f8c3a094a33d
-	github.com/growerlab/go-git-grpc v0.0.0-20211217165443-407f0f565313
+	github.com/growerlab/go-git-grpc v0.0.0-20211218193006-f84fcd45ac58
 	github.com/json-iterator/go v1.1.10 // indirect
 	github.com/kevinburke/ssh_config v1.1.0 // indirect
 	github.com/kr/text v0.2.0 // indirect

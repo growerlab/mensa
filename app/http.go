@@ -51,11 +51,11 @@ func NewGitHttpServer(cfg *conf.Config) *GitHttpServer {
 }
 
 type requestContext struct {
-	c   *gin.Context
-	w   http.ResponseWriter
-	r   *http.Request
-	Rpc string
-	Dir string
+	c       *gin.Context
+	w       http.ResponseWriter
+	r       *http.Request
+	Rpc     string
+	RepoDir string
 }
 
 type GitHttpServer struct {
@@ -103,11 +103,11 @@ func (g *GitHttpServer) handlerBuildRequestContext(c *gin.Context) {
 	rpc := g.getServiceType(c)
 
 	req := &requestContext{
-		c:   c,
-		w:   w,
-		r:   r,
-		Rpc: rpc,
-		Dir: repoDir,
+		c:       c,
+		w:       w,
+		r:       r,
+		Rpc:     rpc,
+		RepoDir: repoDir,
 	}
 	c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), "request_context", req))
 }
@@ -174,7 +174,7 @@ func (g *GitHttpServer) runMiddlewares(ctx *common.Context) error {
 }
 
 func (g *GitHttpServer) serviceRpc(ctx *requestContext) error {
-	var w, r, rpc, dir = ctx.w, ctx.r, ctx.Rpc, ctx.Dir
+	var w, r, rpc, dir = ctx.w, ctx.r, ctx.Rpc, ctx.RepoDir
 
 	var body = r.Body
 	defer body.Close()
@@ -192,7 +192,7 @@ func (g *GitHttpServer) serviceRpc(ctx *requestContext) error {
 
 	// 客户端push：输出到客户端的终端，之后这块应该要抽出来结构化
 	if rpc == ReceivePack {
-		_, _ = w.Write(g.packetWrite(fmt.Sprintf("\x02 %s\n", BannerMessage)))
+		_, _ = w.Write(packetWrite(fmt.Sprintf("\x02 %s\n", BannerMessage)))
 	}
 
 	args := make([]string, 0)
@@ -211,14 +211,14 @@ func (g *GitHttpServer) serviceRpc(ctx *requestContext) error {
 
 	// 当有修改仓库时，更新仓库
 	if rpc == ReceivePack {
-		err = g.updateServerInfo(dir, commonCtx.Env())
+		err = updateServerInfo(dir, commonCtx.Env())
 	}
 
 	return errors.WithStack(err)
 }
 
 func (g *GitHttpServer) getInfoRefs(ctx *requestContext) error {
-	w, r, rpc, dir := ctx.w, ctx.r, ctx.Rpc, ctx.Dir
+	w, r, rpc, dir := ctx.w, ctx.r, ctx.Rpc, ctx.RepoDir
 
 	access := g.hasAccess(r, dir, rpc, false)
 	if access {
@@ -233,8 +233,8 @@ func (g *GitHttpServer) getInfoRefs(ctx *requestContext) error {
 
 		g.hdrNocache(w)
 		w.Header().Set("Content-Type", fmt.Sprintf("application/x-git-%s-advertisement", rpc))
-		_, _ = w.Write(g.packetWrite("# service=git-" + rpc + "\n"))
-		_, _ = w.Write(g.packetFlush())
+		_, _ = w.Write(packetWrite("# service=git-" + rpc + "\n"))
+		_, _ = w.Write(packetFlush())
 
 		args := []string{rpc, "--stateless-rpc", "--advertise-refs", "."}
 		err = gitCommand(r.Body, w, dir, args, commonCtx.Env())
@@ -247,11 +247,11 @@ func (g *GitHttpServer) getInfoRefs(ctx *requestContext) error {
 	return nil
 }
 
-func (g *GitHttpServer) packetFlush() []byte {
+func packetFlush() []byte {
 	return []byte("0000")
 }
 
-func (g *GitHttpServer) packetWrite(str string) []byte {
+func packetWrite(str string) []byte {
 	s := strconv.FormatInt(int64(len(str)+4), 16)
 
 	if len(s)%4 != 0 {
@@ -303,16 +303,16 @@ func (g *GitHttpServer) getGitConfig(configName string, dir string) (string, err
 	return out.String(), errors.WithStack(err)
 }
 
-func (g *GitHttpServer) updateServerInfo(dir string, envs []string) error {
+func (g *GitHttpServer) hdrNocache(w http.ResponseWriter) {
+	w.Header().Set("Expires", "Fri, 01 Jan 1980 00:00:00 GMT")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Cache-Control", "no-cache, max-age=0, must-revalidate")
+}
+
+func updateServerInfo(dir string, envs []string) error {
 	err := gitCommand(nil, nil, dir, []string{"--git-dir", ".", "update-server-info"}, envs)
 	if err != nil {
 		log.Printf("git command 'update-server-info' err: %+v\n", err)
 	}
 	return err
-}
-
-func (g *GitHttpServer) hdrNocache(w http.ResponseWriter) {
-	w.Header().Set("Expires", "Fri, 01 Jan 1980 00:00:00 GMT")
-	w.Header().Set("Pragma", "no-cache")
-	w.Header().Set("Cache-Control", "no-cache, max-age=0, must-revalidate")
 }

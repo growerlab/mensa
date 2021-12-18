@@ -99,7 +99,8 @@ func (c *Context) Env() []string {
 	if c.Type == ProtTypeHTTP && c.Operator != nil {
 		envSet[GROWERLAB_REPO_OPERATOR] = c.Operator.HttpUser.Username() // 操作者
 	} else if c.Type == ProtTypeSSH && c.Operator != nil {
-		envSet[GROWERLAB_REPO_OPERATOR] = string(c.Operator.SSHPublicKey.Marshal())
+		// TODO 这里之后可能用base64封装一下，目前直接通过grpc到go-git-grpc会有「非法的utf-8错误」
+		// envSet[GROWERLAB_REPO_OPERATOR] = string(c.Operator.SSHPublicKey.Marshal())
 	}
 
 	result := make([]string, 0, len(envSet))

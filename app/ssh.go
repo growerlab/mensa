@@ -1,7 +1,11 @@
 package app
 
 import (
+	"bytes"
+	"fmt"
+	"io"
 	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -68,7 +72,15 @@ func (g *GitSSHServer) ListenAndServe(handler MiddlewareHandler) error {
 }
 
 func (g *GitSSHServer) sessionHandler(session ssh.Session) {
+	writeSession := &delayWriteSession{
+		first:   bytes.NewBuffer(nil),
+		session: session,
+	}
 	defer session.Close()
+	go func() {
+		r := session.Stderr()
+		io.Copy(r, os.Stdout)
+	}()
 
 	ctx, err := common.BuildContextFromSSH(session)
 	if err != nil {
@@ -79,27 +91,39 @@ func (g *GitSSHServer) sessionHandler(session ssh.Session) {
 
 	result := g.handler(ctx)
 	if result.Err != nil {
-		_, _ = session.Write([]byte(result.HttpMessage))
+		writeSession.Append(packetWrite(fmt.Sprintf("\x02%s\n", result.HttpMessage)))
 		return
 	}
 
-	service, ok := AllowedCommandMap[ctx.RawCommands[0]]
+	rpc, ok := AllowedCommandMap[ctx.RawCommands[0]]
 	if !ok {
-		log.Printf("[ssh] invalid service: %s\n", ctx.RawCommands[0])
+		log.Printf("[ssh] invalid rpc: %s\n", ctx.RawCommands[0])
 		return
 	}
 
-	args := []string{service, ctx.RepoDir}
-	if service == ReceivePack {
+	// 客户端push：输出到客户端的终端，之后这块应该要抽出来结构化
+
+	if rpc == ReceivePack {
+		writeSession.Append(packetWrite(fmt.Sprintf("\x02%s\n", BannerMessage)))
+	}
+
+	args := make([]string, 0)
+	if rpc == ReceivePack {
 		for _, op := range GitReceivePackOptions {
 			args = append(args, op.Name, op.Args)
 		}
 	}
-
-	err = gitCommand(session, session, ctx.RepoDir, args, ctx.Env())
+	args = append(args, rpc, ".")
+	err = gitCommand(session, writeSession, ctx.RepoDir, args, ctx.Env())
 	if err != nil {
 		log.Printf("[ssh] git was err on running: %v\n", err)
 	}
+
+	// 当有修改仓库时，更新仓库
+	if rpc == ReceivePack {
+		err = updateServerInfo(ctx.RepoDir, ctx.Env())
+	}
+	log.Printf("[ssh] git handler result: %v\n", err)
 }
 
 func (g *GitSSHServer) validate() error {
@@ -141,9 +165,30 @@ func (g *GitSSHServer) run() error {
 	g.srv.SetOption(publicKeyOption)
 	g.srv.SetOption(passwordOption)
 	g.srv.SetOption(defaultOption)
-	// for _, k := range g.hostKeys {
-	// 	g.srv.SetOption(ssh.HostKeyFile(k))
-	// }
 	err := g.srv.ListenAndServe()
 	return errors.WithStack(err)
+}
+
+// delayWriteSession 在unpack指令返回之前插入自定义数据
+type delayWriteSession struct {
+	delay   bool
+	first   *bytes.Buffer
+	session io.Writer
+}
+
+func (d *delayWriteSession) Append(s []byte) {
+	d.first.Write(s)
+}
+
+func (d *delayWriteSession) Write(p []byte) (int, error) {
+	if !d.delay {
+		if bytes.Index(p, []byte("000eunpack ok")) >= 0 {
+			_, err := d.session.Write(d.first.Bytes())
+			if err != nil {
+				return 0, err
+			}
+			d.delay = true
+		}
+	}
+	return d.session.Write(p)
 }
