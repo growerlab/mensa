@@ -4,7 +4,7 @@ default: &base
   http_listen: 0.0.0.0:8080
   go_git_grpc_addr: 127.0.0.1:9001
   deadline: 3600
-  idle_timeout: 180
+  idle_timeout: 30
   git_path: /usr/bin/git
   git_repo_dir: /data/repositories # repos base dir
   db_url: growerlab:growerlab@tcp(127.0.0.1:3306)/growerlab

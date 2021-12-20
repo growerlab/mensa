@@ -45,6 +45,7 @@ func NewGitHttpServer(cfg *conf.Config) *GitHttpServer {
 		Handler:      engine,
 		Addr:         cfg.HttpListen,
 		WriteTimeout: deadline,
+		ReadTimeout:  deadline,
 		IdleTimeout:  idleTimeout,
 	}
 	return server
