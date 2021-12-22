@@ -164,6 +164,7 @@ func (g *GitSSHServer) run() error {
 	g.srv.SetOption(publicKeyOption)
 	g.srv.SetOption(passwordOption)
 	g.srv.SetOption(defaultOption)
+	g.srv.SetOption(ssh.NoPty())
 	err := g.srv.ListenAndServe()
 	return errors.WithStack(err)
 }
