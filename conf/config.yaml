@@ -20,10 +20,10 @@ default: &base
 production:
   <<: *base
 
-test:
+dev:
   <<: *base
 
-dev:
+local:
   <<: *base
   user: moli
   listen: 0.0.0.0:8022

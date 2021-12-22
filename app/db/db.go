@@ -9,12 +9,12 @@ var DB *db.DBQuery
 
 func InitDatabase() error {
 	var err error
-	var conf = conf.GetConfig()
-	DB, err = db.DoInitDatabase(conf.DBUrl, conf.Debug)
+	var cfg = conf.GetConfig()
+	DB, err = db.DoInitDatabase(cfg.DBUrl, conf.IsDev())
 	if err != nil {
 		return err
 	}
 
-	db.DB, err = db.DoInitDatabase(conf.DBUrl, conf.Debug)
+	db.DB, err = db.DoInitDatabase(cfg.DBUrl, conf.IsDev())
 	return err
 }

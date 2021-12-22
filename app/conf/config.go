@@ -2,6 +2,7 @@ package conf
 
 import (
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,10 +13,11 @@ import (
 )
 
 const DefaultConfigPath = "conf/config.yaml"
-const DefaultENV = "dev"
+const DefaultENV = "local"
 
 var envConfig map[string]*Config
 var config *Config
+var env string
 
 type Redis struct {
 	conf.Redis          `yaml:",inline"`
@@ -23,7 +25,6 @@ type Redis struct {
 }
 
 type Config struct {
-	Debug         bool   `yaml:"-"`
 	User          string `yaml:"user"`
 	Listen        string `yaml:"listen"`
 	HttpListen    string `yaml:"http_listen"`
@@ -55,7 +56,7 @@ func (c *Config) validate() error {
 }
 
 func LoadConfig() error {
-	var ok bool
+	var foundEnv bool
 	rawConfig, err := ioutil.ReadFile(DefaultConfigPath)
 	if err != nil {
 		return errors.WithStack(err)
@@ -65,25 +66,30 @@ func LoadConfig() error {
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	env := os.Getenv("ENV")
+	env = os.Getenv("ENV")
 	if env == "" {
 		env = DefaultENV
 	}
 
-	config, ok = envConfig[env]
-	if !ok {
-		return errors.New("not found config by env: " + env)
+	config, foundEnv = envConfig[env]
+	if !foundEnv {
+		return errors.Errorf("config for env '%s'", env)
 	}
 
 	if env == DefaultENV {
 		// for dev
-		config.Debug = true
 		config.GitRepoDir, err = filepath.Abs(config.GitRepoDir)
 		if err != nil {
 			return errors.WithStack(err)
 		}
 	}
+
+	log.Println("load config for env: ", env)
 	return config.validate()
+}
+
+func IsDev() bool {
+	return env == DefaultENV || env == "dev"
 }
 
 func GetConfig() *Config {
