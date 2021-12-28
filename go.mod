@@ -3,7 +3,7 @@ module github.com/growerlab/mensa
 go 1.17
 
 require (
-	github.com/gin-gonic/gin v1.6.3
+	github.com/gin-gonic/gin v1.7.0
 	github.com/gliderlabs/ssh v0.3.1
 	github.com/go-redis/redis/v7 v7.4.0
 	github.com/growerlab/backend v0.0.0-20211130144221-f8c3a094a33d
