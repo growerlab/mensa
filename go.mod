@@ -1,6 +1,6 @@
 module github.com/growerlab/mensa
 
-go 1.18
+go 1.17
 
 require (
 	github.com/gin-gonic/gin v1.6.3
